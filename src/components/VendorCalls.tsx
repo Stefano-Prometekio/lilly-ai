@@ -1,6 +1,90 @@
-import { CheckCircle2, ClipboardPen, Headphones, UserRound } from "lucide-react";
+import { CheckCircle2, ClipboardPen, Headphones, PhoneCall, UserRound } from "lucide-react";
+import { useState } from "react";
 import type { CateringBrief, VendorQuote } from "../domain";
 import { VoiceSession } from "./VoiceSession";
+
+const DEMO_PHONE_NUMBER = "+32465904513";
+
+function PhoneCallLauncher({
+  brief,
+  quote,
+}: {
+  brief: CateringBrief;
+  quote: VendorQuote;
+}) {
+  const [phone, setPhone] = useState(DEMO_PHONE_NUMBER);
+  const [status, setStatus] = useState<
+    { kind: "idle" } | { kind: "calling" } | { kind: "ok"; msg: string } | { kind: "error"; msg: string }
+  >({ kind: "idle" });
+
+  async function placeCall() {
+    setStatus({ kind: "calling" });
+    try {
+      const res = await fetch("/api/outbound-call", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          toNumber: phone,
+          dynamicVariables: {
+            campaign_id: brief.id,
+            brief_id: brief.id,
+            brief_version: brief.version,
+            call_session_id: quote.id,
+            call_mode: "INITIAL_QUOTE",
+            vendor_name: quote.vendorName,
+            event_summary: `${brief.eventType}, ${brief.eventDate}, ${brief.city}, ${brief.guestCount} guests, ${brief.serviceStyle}`,
+            hard_constraints_summary: brief.dietaryRequirements,
+          },
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setStatus({
+          kind: "error",
+          msg: typeof json?.detail === "string" ? json.detail : JSON.stringify(json?.detail ?? json),
+        });
+      } else {
+        setStatus({ kind: "ok", msg: "Call placed. Lilly is dialing." });
+      }
+    } catch (e) {
+      setStatus({ kind: "error", msg: (e as Error).message });
+    }
+  }
+
+  return (
+    <div className="voice-session" style={{ flexWrap: "wrap" }}>
+      <div className="voice-orb" aria-hidden="true">
+        <PhoneCall size={26} />
+      </div>
+      <div className="voice-session__copy">
+        <strong>Real phone call via ElevenLabs + Twilio</strong>
+        <span>
+          {status.kind === "idle" && "Lilly will dial the number below."}
+          {status.kind === "calling" && "Placing call..."}
+          {status.kind === "ok" && status.msg}
+          {status.kind === "error" && `Error: ${status.msg}`}
+        </span>
+      </div>
+      <div className="voice-session__actions" style={{ gap: 8 }}>
+        <input
+          type="tel"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          aria-label="Phone number to call"
+          style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #ccc", minWidth: 180 }}
+        />
+        <button
+          className="button button--primary"
+          type="button"
+          disabled={status.kind === "calling"}
+          onClick={placeCall}
+        >
+          <PhoneCall size={17} /> Call vendor
+        </button>
+      </div>
+    </div>
+  );
+}
 
 const personaCopy = {
   "hidden-fees": {
