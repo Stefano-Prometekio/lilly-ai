@@ -129,7 +129,7 @@ export function BriefForm({ brief, onChange, onConfirm }: BriefFormProps) {
               type="date"
               value={brief.eventDate}
               disabled={confirmed}
-              onChange={(e) => update("eventDate", e.target.value)}
+              onInput={(e) => update("eventDate", e.currentTarget.value)}
             />
           </label>
           <label className="field-grid__wide">

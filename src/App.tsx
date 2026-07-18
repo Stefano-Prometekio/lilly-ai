@@ -23,6 +23,7 @@ import {
   normalizeQuote,
 } from "./lib/procurement";
 import { researchMarket } from "./lib/market-research";
+import type { MarketResearchProgress } from "./lib/market-research-progress";
 
 const steps: Array<{ id: CampaignStep; label: string; icon: typeof Mic2 }> = [
   { id: "intake", label: "Intake", icon: Mic2 },
@@ -41,6 +42,7 @@ function App() {
   const [activeQuoteId, setActiveQuoteId] = useState<string>();
   const [finalistId, setFinalistId] = useState<string>();
   const [researchError, setResearchError] = useState<string>();
+  const [researchProgress, setResearchProgress] = useState<MarketResearchProgress>();
 
   const normalizedQuotes = useMemo(
     () => quotes.map((quote) => normalizeQuote(quote, marketReference, brief.absoluteMaximum)),
@@ -58,12 +60,19 @@ function App() {
 
   async function runResearch() {
     setResearchError(undefined);
+    setResearchProgress({
+      stage: "brief",
+      message: "Confirming the research scope",
+      detail: "Checking the event brief before searching live sources.",
+    });
     setMarketReference((current) => ({ ...current, status: "researching" }));
     try {
-      setMarketReference(await researchMarket(brief));
+      setMarketReference(await researchMarket(brief, setResearchProgress));
     } catch (error) {
       setMarketReference(emptyMarketReference);
       setResearchError(error instanceof Error ? error.message : "Market research failed");
+    } finally {
+      setResearchProgress(undefined);
     }
   }
 
@@ -133,6 +142,7 @@ function App() {
             reference={marketReference}
             onResearch={runResearch}
             error={researchError}
+            progress={researchProgress}
           />
         )}
         {step === "calls" && (
