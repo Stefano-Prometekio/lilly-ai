@@ -397,6 +397,12 @@ export function VendorCalls({
           </div>
         </div>
       )}
+      <BrowserPhoneCall
+        call={currentCall}
+        onDeclined={() => finishCall("declined")}
+        onEnded={() => finishCall("ended")}
+      />
     </section>
+
   );
 }
