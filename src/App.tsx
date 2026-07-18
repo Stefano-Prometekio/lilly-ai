@@ -158,6 +158,7 @@ function App() {
           <VendorCalls
             brief={brief}
             quotes={quotes}
+            vendors={marketReference.vendors}
             activeQuoteId={activeQuoteId}
             onActivate={setActiveQuoteId}
             onUpdate={updateQuote}

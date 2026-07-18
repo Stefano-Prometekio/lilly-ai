@@ -10,12 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiCallStatusRouteImport } from './routes/api.call-status'
 import { Route as ApiMarketResearchRouteImport } from './routes/api.market-research'
 import { Route as ApiOutboundCallRouteImport } from './routes/api.outbound-call'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCallStatusRoute = ApiCallStatusRouteImport.update({
+  id: '/api/call-status',
+  path: '/api/call-status',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiMarketResearchRoute = ApiMarketResearchRouteImport.update({
@@ -31,30 +37,40 @@ const ApiOutboundCallRoute = ApiOutboundCallRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api/call-status': typeof ApiCallStatusRoute
   '/api/market-research': typeof ApiMarketResearchRoute
   '/api/outbound-call': typeof ApiOutboundCallRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api/call-status': typeof ApiCallStatusRoute
   '/api/market-research': typeof ApiMarketResearchRoute
   '/api/outbound-call': typeof ApiOutboundCallRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api/call-status': typeof ApiCallStatusRoute
   '/api/market-research': typeof ApiMarketResearchRoute
   '/api/outbound-call': typeof ApiOutboundCallRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/market-research' | '/api/outbound-call'
+  fullPaths:
+    '/' | '/api/call-status' | '/api/market-research' | '/api/outbound-call'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/market-research' | '/api/outbound-call'
-  id: '__root__' | '/' | '/api/market-research' | '/api/outbound-call'
+  to: '/' | '/api/call-status' | '/api/market-research' | '/api/outbound-call'
+  id:
+    | '__root__'
+    | '/'
+    | '/api/call-status'
+    | '/api/market-research'
+    | '/api/outbound-call'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiCallStatusRoute: typeof ApiCallStatusRoute
   ApiMarketResearchRoute: typeof ApiMarketResearchRoute
   ApiOutboundCallRoute: typeof ApiOutboundCallRoute
 }
@@ -66,6 +82,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/call-status': {
+      id: '/api/call-status'
+      path: '/api/call-status'
+      fullPath: '/api/call-status'
+      preLoaderRoute: typeof ApiCallStatusRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/market-research': {
@@ -87,6 +110,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiCallStatusRoute: ApiCallStatusRoute,
   ApiMarketResearchRoute: ApiMarketResearchRoute,
   ApiOutboundCallRoute: ApiOutboundCallRoute,
 }
