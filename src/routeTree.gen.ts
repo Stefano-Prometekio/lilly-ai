@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiMarketResearchRouteImport } from './routes/api.market-research'
+import { Route as ApiOutboundCallRouteImport } from './routes/api.outbound-call'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -22,31 +23,40 @@ const ApiMarketResearchRoute = ApiMarketResearchRouteImport.update({
   path: '/api/market-research',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiOutboundCallRoute = ApiOutboundCallRouteImport.update({
+  id: '/api/outbound-call',
+  path: '/api/outbound-call',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api/market-research': typeof ApiMarketResearchRoute
+  '/api/outbound-call': typeof ApiOutboundCallRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api/market-research': typeof ApiMarketResearchRoute
+  '/api/outbound-call': typeof ApiOutboundCallRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/api/market-research': typeof ApiMarketResearchRoute
+  '/api/outbound-call': typeof ApiOutboundCallRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/market-research'
+  fullPaths: '/' | '/api/market-research' | '/api/outbound-call'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/market-research'
-  id: '__root__' | '/' | '/api/market-research'
+  to: '/' | '/api/market-research' | '/api/outbound-call'
+  id: '__root__' | '/' | '/api/market-research' | '/api/outbound-call'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiMarketResearchRoute: typeof ApiMarketResearchRoute
+  ApiOutboundCallRoute: typeof ApiOutboundCallRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -65,23 +75,21 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiMarketResearchRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/outbound-call': {
+      id: '/api/outbound-call'
+      path: '/api/outbound-call'
+      fullPath: '/api/outbound-call'
+      preLoaderRoute: typeof ApiOutboundCallRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiMarketResearchRoute: ApiMarketResearchRoute,
+  ApiOutboundCallRoute: ApiOutboundCallRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
