@@ -1,0 +1,13 @@
+project_id = "lilly-ai"
+
+[functions.market-baseline]
+verify_jwt = false
+
+[functions.elevenlabs-token]
+verify_jwt = false
+
+[functions.elevenlabs-webhook]
+verify_jwt = false
+
+[functions.agent-tools]
+verify_jwt = false
