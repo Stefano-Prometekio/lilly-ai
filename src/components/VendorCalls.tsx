@@ -62,71 +62,79 @@ export function VendorCalls({
   onUpdate,
 }: VendorCallsProps) {
   const activeQuote = quotes.find((quote) => quote.id === activeQuoteId);
-  const abortRef = useRef<AbortController | null>(null);
+  const abortRef = useRef<{ aborted: boolean }>({ aborted: false });
+  const resolveCallRef = useRef<((reason: "ended" | "declined") => void) | null>(null);
   const [seq, setSeq] = useState<SequentialState>({
     running: false,
     currentIndex: -1,
     log: [],
   });
+  const [currentCall, setCurrentCall] = useState<
+    (BrowserCallRequest & { quoteId: string }) | null
+  >(null);
 
-  useEffect(() => () => abortRef.current?.abort(), []);
+  useEffect(
+    () => () => {
+      abortRef.current.aborted = true;
+    },
+    [],
+  );
+
+  function waitForBrowserCall(quote: VendorQuote): Promise<"ended" | "declined"> {
+    return new Promise((resolve) => {
+      resolveCallRef.current = resolve;
+      setCurrentCall({
+        quoteId: quote.id,
+        vendorName: quote.vendorName,
+        vendorAddress: vendors?.find((_v, i) => quotes[i]?.id === quote.id)?.address,
+        dynamicVariables: buildDynamicVariables(brief, quote),
+      });
+    });
+  }
+
+  function finishCall(reason: "ended" | "declined") {
+    setCurrentCall(null);
+    const r = resolveCallRef.current;
+    resolveCallRef.current = null;
+    r?.(reason);
+  }
 
   async function runAllCalls() {
-    const controller = new AbortController();
-    abortRef.current = controller;
+    abortRef.current = { aborted: false };
     setSeq({ running: true, currentIndex: 0, log: [], error: undefined });
 
     for (let i = 0; i < quotes.length; i++) {
-      if (controller.signal.aborted) break;
+      if (abortRef.current.aborted) break;
       const quote = quotes[i];
       setSeq((s) => ({
         ...s,
         currentIndex: i,
-        log: [...s.log, `Calling ${quote.vendorName}...`],
+        log: [...s.log, `Ringing ${quote.vendorName} in the browser...`],
       }));
       onUpdate({ ...quote, status: "calling" });
-      try {
-        const { conversationId } = await placeElevenLabsCall(brief, quote, DEMO_PHONE_NUMBER);
-        if (conversationId) {
-          setSeq((s) => ({
-            ...s,
-            log: [...s.log, `Connected with ${quote.vendorName} (${conversationId}). Waiting for call to end...`],
-          }));
-          const reason = await waitForCallToEnd(conversationId, controller.signal);
-          if (reason === "unanswered") {
-            setSeq((s) => ({
-              ...s,
-              log: [...s.log, `${quote.vendorName} did not answer. Moving on.`],
-            }));
-            onUpdate({ ...quote, status: "not-started" });
-          } else {
-            setSeq((s) => ({ ...s, log: [...s.log, `Finished call with ${quote.vendorName}.`] }));
-          }
-        } else {
-          setSeq((s) => ({
-            ...s,
-            log: [...s.log, `Call to ${quote.vendorName} placed (no conversation id). Waiting 60s.`],
-          }));
-          await new Promise((r) => setTimeout(r, 60000));
-          setSeq((s) => ({ ...s, log: [...s.log, `Finished call with ${quote.vendorName}.`] }));
-        }
-      } catch (e) {
+      const reason = await waitForBrowserCall(quote);
+      if (abortRef.current.aborted) break;
+      if (reason === "declined") {
         setSeq((s) => ({
           ...s,
-          error: (e as Error).message,
-          log: [...s.log, `Error calling ${quote.vendorName}: ${(e as Error).message}`],
-          running: false,
+          log: [...s.log, `${quote.vendorName} did not answer. Moving on.`],
         }));
-        return;
+        onUpdate({ ...quote, status: "not-started" });
+      } else {
+        setSeq((s) => ({ ...s, log: [...s.log, `Finished call with ${quote.vendorName}.`] }));
       }
+      // small pacing gap before the next vendor rings
+      await new Promise((r) => setTimeout(r, 800));
     }
     setSeq((s) => ({ ...s, running: false, currentIndex: -1, log: [...s.log, "All calls complete."] }));
   }
 
   function stopAllCalls() {
-    abortRef.current?.abort();
+    abortRef.current.aborted = true;
+    if (resolveCallRef.current) finishCall("declined");
     setSeq((s) => ({ ...s, running: false }));
   }
+
 
   return (
     <section className="calls-layout">
