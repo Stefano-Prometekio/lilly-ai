@@ -208,6 +208,7 @@ export function VendorCalls({
             }}
             onStarted={() => onUpdate({ ...activeQuote, status: "calling" })}
           />
+          <PhoneCallLauncher brief={brief} quote={activeQuote} />
 
           <div className="quote-capture">
             <span className="kicker">Structured call outcome</span>
