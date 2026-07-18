@@ -37,6 +37,7 @@ export const emptyMarketReference: MarketReference = {
   confidence: 0,
   summary: "Run market research after confirming the brief.",
   sources: [],
+  vendors: [],
 };
 
 export const initialQuotes: VendorQuote[] = [

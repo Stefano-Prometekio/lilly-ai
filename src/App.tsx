@@ -67,7 +67,16 @@ function App() {
     });
     setMarketReference((current) => ({ ...current, status: "researching" }));
     try {
-      setMarketReference(await researchMarket(brief, setResearchProgress));
+      const result = await researchMarket(brief, setResearchProgress);
+      setMarketReference(result);
+      if (result.vendors?.length) {
+        setQuotes((current) =>
+          current.map((quote, index) => {
+            const vendor = result.vendors[index];
+            return vendor ? { ...quote, vendorName: vendor.name } : quote;
+          }),
+        );
+      }
     } catch (error) {
       setMarketReference(emptyMarketReference);
       setResearchError(error instanceof Error ? error.message : "Market research failed");
@@ -149,6 +158,7 @@ function App() {
           <VendorCalls
             brief={brief}
             quotes={quotes}
+            vendors={marketReference.vendors}
             activeQuoteId={activeQuoteId}
             onActivate={setActiveQuoteId}
             onUpdate={updateQuote}

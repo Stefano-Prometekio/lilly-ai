@@ -32,6 +32,16 @@ export interface MarketSource {
   note: string;
 }
 
+export interface MarketVendor {
+  id: string;
+  name: string;
+  address?: string;
+  website?: string;
+  mapsUrl?: string;
+  rating?: number;
+  reviewCount?: number;
+}
+
 export interface MarketReference {
   status: "idle" | "researching" | "complete" | "fallback";
   lowTotal: number;
@@ -42,6 +52,7 @@ export interface MarketReference {
   confidence: number;
   summary: string;
   sources: MarketSource[];
+  vendors: MarketVendor[];
   researchedAt?: string;
 }
 

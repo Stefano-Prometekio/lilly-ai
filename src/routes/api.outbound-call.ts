@@ -45,12 +45,21 @@ export const Route = createFileRoute("/api/outbound-call")({
           dynamicVariables[k] = String(v);
         }
 
+        const vendorName = dynamicVariables.vendor_name || "the catering team";
+        const eventSummary = dynamicVariables.event_summary || "an upcoming event";
+        const firstMessage = `Hi, this is Lilly, an AI procurement assistant calling on behalf of an event buyer. Am I reaching ${vendorName}? I'm gathering a catering quote for ${eventSummary} and hoping you have a couple of minutes to walk through it.`;
+
         const payload = {
           agent_id: agentId,
           agent_phone_number_id: phoneNumberId,
           to_number: parsed.toNumber,
           conversation_initiation_client_data: {
             dynamic_variables: dynamicVariables,
+            conversation_config_override: {
+              agent: {
+                first_message: firstMessage,
+              },
+            },
           },
         };
 

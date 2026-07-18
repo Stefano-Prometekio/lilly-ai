@@ -124,12 +124,29 @@ function validatedReference(
     throw new Error("The live research did not produce a valid ordered market range.");
   }
 
+  const rankedPlaces = [...places].sort((a, b) => {
+    const ra = a.rating ?? 0;
+    const rb = b.rating ?? 0;
+    if (rb !== ra) return rb - ra;
+    return (b.userRatingCount ?? 0) - (a.userRatingCount ?? 0);
+  });
+  const vendors = rankedPlaces.slice(0, 3).map((p) => ({
+    id: p.id,
+    name: p.displayName?.text ?? "Unknown caterer",
+    address: p.formattedAddress,
+    website: p.websiteUri,
+    mapsUrl: p.googleMapsUri,
+    rating: p.rating,
+    reviewCount: p.userRatingCount,
+  }));
+
   const evidenceConfidenceCap =
     priceSourceCount >= 3 ? 0.9 : priceSourceCount === 2 ? 0.7 : priceSourceCount === 1 ? 0.45 : 0.25;
   return {
     ...raw,
     confidence: Math.min(Math.max(raw.confidence, 0), evidenceConfidenceCap),
     sources,
+    vendors,
     sampleSize: priceSourceCount,
     status: "complete" as const,
     researchedAt: new Date().toISOString(),
