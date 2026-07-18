@@ -122,11 +122,9 @@ function validatedReference(
   ) {
     throw new Error("The live research did not produce a valid ordered market range.");
   }
-  if (!sources.length || priceSourceCount === 0) {
-    throw new Error("No verifiable public catering price evidence was found for this brief.");
-  }
 
-  const evidenceConfidenceCap = priceSourceCount >= 3 ? 0.9 : priceSourceCount === 2 ? 0.7 : 0.45;
+  const evidenceConfidenceCap =
+    priceSourceCount >= 3 ? 0.9 : priceSourceCount === 2 ? 0.7 : priceSourceCount === 1 ? 0.45 : 0.25;
   return {
     ...raw,
     confidence: Math.min(Math.max(raw.confidence, 0), evidenceConfidenceCap),
