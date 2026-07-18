@@ -149,10 +149,11 @@ export function VendorCalls({
           </span>
         </div>
         <p className="panel-intro">
-          Lilly will call each vendor back-to-back at the demo number{" "}
-          <strong>{DEMO_PHONE_NUMBER}</strong>, introduce herself, and gather a full quote before
-          moving on.
+          Lilly will call each vendor back-to-back <strong>right here in the browser</strong>. When
+          the phone rings, click <strong>Answer</strong> to pick up as the vendor and talk to
+          Lilly. She'll gather a full quote before moving on to the next.
         </p>
+
 
         <div className="voice-session" style={{ flexWrap: "wrap" }}>
           <div className="voice-orb" aria-hidden="true">
