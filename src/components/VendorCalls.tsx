@@ -211,7 +211,7 @@ export function VendorCalls({
               ...s,
               log: [...s.log, `${quote.vendorName} did not answer. Moving on.`],
             }));
-            onUpdate({ ...quote, status: "pending" });
+            onUpdate({ ...quote, status: "not-started" });
           } else {
             setSeq((s) => ({ ...s, log: [...s.log, `Finished call with ${quote.vendorName}.`] }));
           }
