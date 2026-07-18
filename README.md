@@ -22,7 +22,16 @@ npm install
 npm run dev
 ```
 
-Copy `.env.example` to `.env.local` and add only browser-safe `VITE_*` values there. Server secrets belong in Supabase Edge Function secrets.
+Copy `.env.example` to `.env.local`. Keep `OPENAI_API_KEY`, `GOOGLE_PLACES_API_KEY`, and
+`ELEVENLABS_API_KEY` server-only; never give them a `VITE_` prefix. Configure the same server
+secrets in the Lovable deployment environment before publishing. Browser-safe IDs may use the
+documented `VITE_*` variables.
+
+After changing Lilly's prompt or intake-tool schema, apply it to the live ElevenLabs agent with:
+
+```bash
+npm run elevenlabs:update-agent
+```
 
 Verification:
 
@@ -38,9 +47,14 @@ npm run build
 - [ElevenLabs agent design](docs/elevenlabs-agent-design.md)
 - [Inputs and decisions](docs/inputs-needed.md)
 
+## Live integrations
+
+- `/api/market-research`: Google Places discovery followed by OpenAI web research, with only
+  verifiable price-bearing sources allowed to set the benchmark.
+
 ## Supabase functions
 
-- `market-baseline`: Google Places discovery followed by OpenAI web research with structured source provenance.
+- `market-baseline`: optional edge-function implementation retained for a future Supabase-hosted research path.
 - `elevenlabs-token`: short-lived private WebRTC session token issuance.
 - `elevenlabs-webhook`: HMAC-verified transcript, analysis, audio, and failure ingestion.
 - `agent-tools`: authenticated intake, quote capture, completeness, counteroffer, and structured-outcome tools for Lilly.
