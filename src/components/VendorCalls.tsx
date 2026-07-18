@@ -1,136 +1,23 @@
-import { CheckCircle2, ClipboardPen, Headphones, PhoneCall, PhoneOutgoing, UserRound } from "lucide-react";
+import { CheckCircle2, ClipboardPen, Headphones, PhoneOutgoing, UserRound } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { CateringBrief, MarketVendor, VendorQuote } from "../domain";
 import { VoiceSession } from "./VoiceSession";
+import { BrowserPhoneCall, type BrowserCallRequest } from "./BrowserPhoneCall";
 
-const DEMO_PHONE_NUMBER = "+32465904513";
 
-async function placeElevenLabsCall(brief: CateringBrief, quote: VendorQuote, toNumber: string) {
-  const res = await fetch("/api/outbound-call", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      toNumber,
-      dynamicVariables: {
-        campaign_id: brief.id,
-        brief_id: brief.id,
-        brief_version: brief.version,
-        call_session_id: quote.id,
-        call_mode: "INITIAL_QUOTE",
-        vendor_name: quote.vendorName,
-        event_summary: `${brief.eventType}, ${brief.eventDate}, ${brief.city}, ${brief.guestCount} guests, ${brief.serviceStyle}`,
-        hard_constraints_summary: brief.dietaryRequirements,
-      },
-    }),
-  });
-  const json = await res.json();
-  if (!res.ok) {
-    throw new Error(
-      typeof json?.detail === "string" ? json.detail : JSON.stringify(json?.detail ?? json),
-    );
-  }
-  const conversationId: string | undefined =
-    json?.result?.conversation_id || json?.result?.conversationId;
-  return { conversationId, raw: json };
+function buildDynamicVariables(brief: CateringBrief, quote: VendorQuote) {
+  return {
+    campaign_id: brief.id,
+    brief_id: brief.id,
+    brief_version: brief.version,
+    call_session_id: quote.id,
+    call_mode: "INITIAL_QUOTE",
+    vendor_name: quote.vendorName,
+    event_summary: `${brief.eventType}, ${brief.eventDate}, ${brief.city}, ${brief.guestCount} guests, ${brief.serviceStyle}`,
+    hard_constraints_summary: brief.dietaryRequirements,
+  } as Record<string, string | number | boolean>;
 }
 
-type CallEndReason = "completed" | "unanswered" | "timeout";
-
-async function waitForCallToEnd(
-  conversationId: string,
-  signal: AbortSignal,
-): Promise<CallEndReason> {
-  const start = Date.now();
-  const maxMs = 12 * 60 * 1000;
-  // If the call stays "initiated" with 0 duration for this long, treat as unanswered.
-  const unansweredMs = 75 * 1000;
-  while (!signal.aborted && Date.now() - start < maxMs) {
-    await new Promise((r) => setTimeout(r, 4000));
-    if (signal.aborted) return "timeout";
-    try {
-      const res = await fetch(
-        `/api/call-status?conversation_id=${encodeURIComponent(conversationId)}`,
-      );
-      if (res.ok) {
-        const data = await res.json();
-        const status: string | undefined = data?.status;
-        const duration: number = data?.metadata?.call_duration_secs ?? 0;
-        if (
-          status &&
-          status !== "in-progress" &&
-          status !== "processing" &&
-          status !== "initiated"
-        ) {
-          return duration > 0 ? "completed" : "unanswered";
-        }
-        // Stuck in "initiated" with no audio → vendor never picked up.
-        if (status === "initiated" && duration === 0 && Date.now() - start > unansweredMs) {
-          return "unanswered";
-        }
-      }
-    } catch {
-      // keep polling
-    }
-  }
-  return "timeout";
-}
-
-function PhoneCallLauncher({
-  brief,
-  quote,
-}: {
-  brief: CateringBrief;
-  quote: VendorQuote;
-}) {
-  const [phone, setPhone] = useState(DEMO_PHONE_NUMBER);
-  const [status, setStatus] = useState<
-    { kind: "idle" } | { kind: "calling" } | { kind: "ok"; msg: string } | { kind: "error"; msg: string }
-  >({ kind: "idle" });
-
-  async function placeCall() {
-    setStatus({ kind: "calling" });
-    try {
-      await placeElevenLabsCall(brief, quote, phone);
-      setStatus({ kind: "ok", msg: "Call placed. Lilly is dialing." });
-    } catch (e) {
-      setStatus({ kind: "error", msg: (e as Error).message });
-    }
-  }
-
-  return (
-    <div className="voice-session" style={{ flexWrap: "wrap" }}>
-      <div className="voice-orb" aria-hidden="true">
-        <PhoneCall size={26} />
-      </div>
-      <div className="voice-session__copy">
-        <strong>Real phone call via ElevenLabs + Twilio</strong>
-        <span>
-          {status.kind === "idle" && "Lilly will dial the number below."}
-          {status.kind === "calling" && "Placing call..."}
-          {status.kind === "ok" && status.msg}
-          {status.kind === "error" && `Error: ${status.msg}`}
-        </span>
-      </div>
-      <div className="voice-session__actions" style={{ gap: 8 }}>
-        <input
-          type="tel"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          aria-label="Phone number to call"
-          style={{ padding: "8px 10px", borderRadius: 8, border: "1px solid #ccc", minWidth: 180 }}
-        />
-        <button
-          className="button button--primary"
-          type="button"
-          disabled={status.kind === "calling"}
-          onClick={placeCall}
-        >
-          <PhoneCall size={17} /> Call vendor
-        </button>
-      </div>
-    </div>
-  );
-}
 
 const personaCopy = {
   "hidden-fees": {
@@ -175,71 +62,79 @@ export function VendorCalls({
   onUpdate,
 }: VendorCallsProps) {
   const activeQuote = quotes.find((quote) => quote.id === activeQuoteId);
-  const abortRef = useRef<AbortController | null>(null);
+  const abortRef = useRef<{ aborted: boolean }>({ aborted: false });
+  const resolveCallRef = useRef<((reason: "ended" | "declined") => void) | null>(null);
   const [seq, setSeq] = useState<SequentialState>({
     running: false,
     currentIndex: -1,
     log: [],
   });
+  const [currentCall, setCurrentCall] = useState<
+    (BrowserCallRequest & { quoteId: string }) | null
+  >(null);
 
-  useEffect(() => () => abortRef.current?.abort(), []);
+  useEffect(
+    () => () => {
+      abortRef.current.aborted = true;
+    },
+    [],
+  );
+
+  function waitForBrowserCall(quote: VendorQuote): Promise<"ended" | "declined"> {
+    return new Promise((resolve) => {
+      resolveCallRef.current = resolve;
+      setCurrentCall({
+        quoteId: quote.id,
+        vendorName: quote.vendorName,
+        vendorAddress: vendors?.find((_v, i) => quotes[i]?.id === quote.id)?.address,
+        dynamicVariables: buildDynamicVariables(brief, quote),
+      });
+    });
+  }
+
+  function finishCall(reason: "ended" | "declined") {
+    setCurrentCall(null);
+    const r = resolveCallRef.current;
+    resolveCallRef.current = null;
+    r?.(reason);
+  }
 
   async function runAllCalls() {
-    const controller = new AbortController();
-    abortRef.current = controller;
+    abortRef.current = { aborted: false };
     setSeq({ running: true, currentIndex: 0, log: [], error: undefined });
 
     for (let i = 0; i < quotes.length; i++) {
-      if (controller.signal.aborted) break;
+      if (abortRef.current.aborted) break;
       const quote = quotes[i];
       setSeq((s) => ({
         ...s,
         currentIndex: i,
-        log: [...s.log, `Calling ${quote.vendorName}...`],
+        log: [...s.log, `Ringing ${quote.vendorName} in the browser...`],
       }));
       onUpdate({ ...quote, status: "calling" });
-      try {
-        const { conversationId } = await placeElevenLabsCall(brief, quote, DEMO_PHONE_NUMBER);
-        if (conversationId) {
-          setSeq((s) => ({
-            ...s,
-            log: [...s.log, `Connected with ${quote.vendorName} (${conversationId}). Waiting for call to end...`],
-          }));
-          const reason = await waitForCallToEnd(conversationId, controller.signal);
-          if (reason === "unanswered") {
-            setSeq((s) => ({
-              ...s,
-              log: [...s.log, `${quote.vendorName} did not answer. Moving on.`],
-            }));
-            onUpdate({ ...quote, status: "not-started" });
-          } else {
-            setSeq((s) => ({ ...s, log: [...s.log, `Finished call with ${quote.vendorName}.`] }));
-          }
-        } else {
-          setSeq((s) => ({
-            ...s,
-            log: [...s.log, `Call to ${quote.vendorName} placed (no conversation id). Waiting 60s.`],
-          }));
-          await new Promise((r) => setTimeout(r, 60000));
-          setSeq((s) => ({ ...s, log: [...s.log, `Finished call with ${quote.vendorName}.`] }));
-        }
-      } catch (e) {
+      const reason = await waitForBrowserCall(quote);
+      if (abortRef.current.aborted) break;
+      if (reason === "declined") {
         setSeq((s) => ({
           ...s,
-          error: (e as Error).message,
-          log: [...s.log, `Error calling ${quote.vendorName}: ${(e as Error).message}`],
-          running: false,
+          log: [...s.log, `${quote.vendorName} did not answer. Moving on.`],
         }));
-        return;
+        onUpdate({ ...quote, status: "not-started" });
+      } else {
+        setSeq((s) => ({ ...s, log: [...s.log, `Finished call with ${quote.vendorName}.`] }));
       }
+      // small pacing gap before the next vendor rings
+      await new Promise((r) => setTimeout(r, 800));
     }
     setSeq((s) => ({ ...s, running: false, currentIndex: -1, log: [...s.log, "All calls complete."] }));
   }
 
   function stopAllCalls() {
-    abortRef.current?.abort();
+    abortRef.current.aborted = true;
+    if (resolveCallRef.current) finishCall("declined");
     setSeq((s) => ({ ...s, running: false }));
   }
+
 
   return (
     <section className="calls-layout">
@@ -254,10 +149,11 @@ export function VendorCalls({
           </span>
         </div>
         <p className="panel-intro">
-          Lilly will call each vendor back-to-back at the demo number{" "}
-          <strong>{DEMO_PHONE_NUMBER}</strong>, introduce herself, and gather a full quote before
-          moving on.
+          Lilly will call each vendor back-to-back <strong>right here in the browser</strong>. When
+          the phone rings, click <strong>Answer</strong> to pick up as the vendor and talk to
+          Lilly. She'll gather a full quote before moving on to the next.
         </p>
+
 
         <div className="voice-session" style={{ flexWrap: "wrap" }}>
           <div className="voice-orb" aria-hidden="true">
@@ -396,7 +292,7 @@ export function VendorCalls({
             }}
             onStarted={() => onUpdate({ ...activeQuote, status: "calling" })}
           />
-          <PhoneCallLauncher brief={brief} quote={activeQuote} />
+          
 
           <div className="quote-capture">
             <span className="kicker">Structured call outcome</span>
@@ -501,6 +397,12 @@ export function VendorCalls({
           </div>
         </div>
       )}
+      <BrowserPhoneCall
+        call={currentCall}
+        onDeclined={() => finishCall("declined")}
+        onEnded={() => finishCall("ended")}
+      />
     </section>
+
   );
 }
