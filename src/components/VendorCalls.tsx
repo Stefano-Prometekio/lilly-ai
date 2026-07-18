@@ -34,12 +34,19 @@ async function placeElevenLabsCall(brief: CateringBrief, quote: VendorQuote, toN
   return { conversationId, raw: json };
 }
 
-async function waitForCallToEnd(conversationId: string, signal: AbortSignal) {
+type CallEndReason = "completed" | "unanswered" | "timeout";
+
+async function waitForCallToEnd(
+  conversationId: string,
+  signal: AbortSignal,
+): Promise<CallEndReason> {
   const start = Date.now();
-  const maxMs = 15 * 60 * 1000;
+  const maxMs = 12 * 60 * 1000;
+  // If the call stays "initiated" with 0 duration for this long, treat as unanswered.
+  const unansweredMs = 75 * 1000;
   while (!signal.aborted && Date.now() - start < maxMs) {
     await new Promise((r) => setTimeout(r, 4000));
-    if (signal.aborted) return;
+    if (signal.aborted) return "timeout";
     try {
       const res = await fetch(
         `/api/call-status?conversation_id=${encodeURIComponent(conversationId)}`,
@@ -47,14 +54,25 @@ async function waitForCallToEnd(conversationId: string, signal: AbortSignal) {
       if (res.ok) {
         const data = await res.json();
         const status: string | undefined = data?.status;
-        if (status && status !== "in-progress" && status !== "processing" && status !== "initiated") {
-          return;
+        const duration: number = data?.metadata?.call_duration_secs ?? 0;
+        if (
+          status &&
+          status !== "in-progress" &&
+          status !== "processing" &&
+          status !== "initiated"
+        ) {
+          return duration > 0 ? "completed" : "unanswered";
+        }
+        // Stuck in "initiated" with no audio → vendor never picked up.
+        if (status === "initiated" && duration === 0 && Date.now() - start > unansweredMs) {
+          return "unanswered";
         }
       }
     } catch {
       // keep polling
     }
   }
+  return "timeout";
 }
 
 function PhoneCallLauncher({
