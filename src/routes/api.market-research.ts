@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
+import type { MarketResearchProgress } from "../lib/market-research-progress";
 
 const briefSchema = z.object({
   eventType: z.string().min(1),
@@ -137,49 +138,65 @@ function validatedReference(
   };
 }
 
-async function researchMarket(request: Request) {
-  try {
-    const payload = (await request.json()) as { brief?: unknown };
-    const brief = briefSchema.parse(payload.brief);
-    const googleKey = process.env.GOOGLE_PLACES_API_KEY;
-    const openAIKey = process.env.OPENAI_API_KEY;
-    const model = process.env.OPENAI_MODEL || "gpt-5.6-terra";
-    if (!googleKey || !openAIKey) {
-      return Response.json(
-        { error: "Market research needs GOOGLE_PLACES_API_KEY and OPENAI_API_KEY on the server." },
-        { status: 503 },
-      );
-    }
+async function researchMarket(
+  request: Request,
+  reportProgress: (progress: MarketResearchProgress) => void,
+) {
+  reportProgress({
+    stage: "brief",
+    message: "Confirming the research scope",
+    detail: "Checking the event brief, location, guest count, and service requirements.",
+  });
+  const payload = (await request.json()) as { brief?: unknown };
+  const brief = briefSchema.parse(payload.brief);
+  const googleKey = process.env.GOOGLE_PLACES_API_KEY;
+  const openAIKey = process.env.OPENAI_API_KEY;
+  const model = process.env.OPENAI_MODEL || "gpt-5.6-terra";
+  if (!googleKey || !openAIKey) {
+    throw new Error(
+      "Market research needs GOOGLE_PLACES_API_KEY and OPENAI_API_KEY on the server.",
+    );
+  }
 
-    const placesResponse = await fetch("https://places.googleapis.com/v1/places:searchText", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Goog-Api-Key": googleKey,
-        "X-Goog-FieldMask":
-          "places.id,places.displayName,places.formattedAddress,places.websiteUri,places.googleMapsUri,places.rating,places.userRatingCount",
-      },
-      body: JSON.stringify({
-        textQuery: `${brief.serviceStyle} event catering services within ${brief.radiusKm} km of ${brief.city}`,
-        pageSize: 12,
-        languageCode: "en",
-        includePureServiceAreaBusinesses: true,
-      }),
-    });
-    if (!placesResponse.ok) {
-      throw new Error(`Google Places failed (${placesResponse.status}).`);
-    }
-    const placesPayload = (await placesResponse.json()) as { places?: GooglePlace[] };
-    const places = placesPayload.places ?? [];
-    if (!places.length) throw new Error("Google Places found no relevant caterers in this area.");
+  reportProgress({
+    stage: "places",
+    message: "Finding relevant local caterers",
+    detail: `Searching Google Places within ${brief.radiusKm} km of ${brief.city}.`,
+  });
+  const placesResponse = await fetch("https://places.googleapis.com/v1/places:searchText", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Goog-Api-Key": googleKey,
+      "X-Goog-FieldMask":
+        "places.id,places.displayName,places.formattedAddress,places.websiteUri,places.googleMapsUri,places.rating,places.userRatingCount",
+    },
+    body: JSON.stringify({
+      textQuery: `${brief.serviceStyle} event catering services within ${brief.radiusKm} km of ${brief.city}`,
+      pageSize: 12,
+      languageCode: "en",
+      includePureServiceAreaBusinesses: true,
+    }),
+  });
+  if (!placesResponse.ok) {
+    throw new Error(`Google Places failed (${placesResponse.status}).`);
+  }
+  const placesPayload = (await placesResponse.json()) as { places?: GooglePlace[] };
+  const places = placesPayload.places ?? [];
+  if (!places.length) throw new Error("Google Places found no relevant caterers in this area.");
 
-    const candidates = places
-      .map(
-        (place) =>
-          `- ${place.displayName?.text ?? "Unknown caterer"}; ${place.formattedAddress ?? "address unavailable"}; ${place.websiteUri ?? place.googleMapsUri ?? "website unavailable"}; rating ${place.rating ?? "n/a"} (${place.userRatingCount ?? 0} reviews)`,
-      )
-      .join("\n");
-    const researchPrompt = `Create an evidence-backed catering market benchmark for this confirmed event brief.
+  reportProgress({
+    stage: "pricing",
+    message: "Searching public pricing evidence",
+    detail: `Reviewing menus, packages, and regional pricing for ${places.length} discovered caterers.`,
+  });
+  const candidates = places
+    .map(
+      (place) =>
+        `- ${place.displayName?.text ?? "Unknown caterer"}; ${place.formattedAddress ?? "address unavailable"}; ${place.websiteUri ?? place.googleMapsUri ?? "website unavailable"}; rating ${place.rating ?? "n/a"} (${place.userRatingCount ?? 0} reviews)`,
+    )
+    .join("\n");
+  const researchPrompt = `Create an evidence-backed catering market benchmark for this confirmed event brief.
 
 Location: ${brief.city}, search radius ${brief.radiusKm} km
 Venue: ${brief.venueAddress || "not specified"}
@@ -198,88 +215,122 @@ Use web search to inspect current public vendor menus, rate cards, event package
 
 Calculate a realistic all-in low, median, and high total covering food, staffing, delivery, equipment or tableware, setup or cleanup, service charges, and tax where applicable. Each source with an observed price must put the numeric price in observedPrice and describe its unit or basis in note. Use null when a source identifies a vendor but publishes no price. Include only URLs actually found through web search or supplied in the Google Places candidate list. If fewer than one verifiable public price is found, do not invent a range.`;
 
-    const openAIResponse = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${openAIKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        reasoning: { effort: "low" },
-        tools: [{ type: "web_search" }],
-        input: researchPrompt,
-        text: {
-          format: {
-            type: "json_schema",
-            name: "catering_market_reference",
-            strict: true,
-            schema: {
-              type: "object",
-              additionalProperties: false,
-              required: [
-                "lowTotal",
-                "medianTotal",
-                "highTotal",
-                "medianPerGuest",
-                "confidence",
-                "summary",
-                "sources",
-              ],
-              properties: {
-                lowTotal: { type: "number" },
-                medianTotal: { type: "number" },
-                highTotal: { type: "number" },
-                medianPerGuest: { type: "number" },
-                confidence: { type: "number", minimum: 0, maximum: 1 },
-                summary: { type: "string" },
-                sources: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    additionalProperties: false,
-                    required: ["title", "url", "sourceType", "observedPrice", "note"],
-                    properties: {
-                      title: { type: "string" },
-                      url: { type: "string" },
-                      sourceType: {
-                        type: "string",
-                        enum: ["vendor", "directory", "market-guide", "google-places"],
-                      },
-                      observedPrice: { type: ["number", "null"] },
-                      note: { type: "string" },
+  const openAIResponse = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${openAIKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      reasoning: { effort: "low" },
+      tools: [{ type: "web_search" }],
+      input: researchPrompt,
+      text: {
+        format: {
+          type: "json_schema",
+          name: "catering_market_reference",
+          strict: true,
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            required: [
+              "lowTotal",
+              "medianTotal",
+              "highTotal",
+              "medianPerGuest",
+              "confidence",
+              "summary",
+              "sources",
+            ],
+            properties: {
+              lowTotal: { type: "number" },
+              medianTotal: { type: "number" },
+              highTotal: { type: "number" },
+              medianPerGuest: { type: "number" },
+              confidence: { type: "number", minimum: 0, maximum: 1 },
+              summary: { type: "string" },
+              sources: {
+                type: "array",
+                items: {
+                  type: "object",
+                  additionalProperties: false,
+                  required: ["title", "url", "sourceType", "observedPrice", "note"],
+                  properties: {
+                    title: { type: "string" },
+                    url: { type: "string" },
+                    sourceType: {
+                      type: "string",
+                      enum: ["vendor", "directory", "market-guide", "google-places"],
                     },
+                    observedPrice: { type: ["number", "null"] },
+                    note: { type: "string" },
                   },
                 },
               },
             },
           },
         },
-      }),
-    });
-    if (!openAIResponse.ok) {
-      throw new Error(`OpenAI web research failed (${openAIResponse.status}).`);
-    }
-    const openAIPayload = (await openAIResponse.json()) as Record<string, unknown>;
-    const reference = JSON.parse(extractOutputText(openAIPayload)) as ResearchReference;
-    return Response.json(
-      validatedReference(reference, places, collectWebSearchUrls(openAIPayload)),
-    );
-  } catch (error) {
-    const message =
-      error instanceof z.ZodError
-        ? "The confirmed brief is incomplete. Return to intake and fill the required fields."
-        : error instanceof Error
-          ? error.message
-          : "Market research failed.";
-    return Response.json({ error: message }, { status: 500 });
+      },
+    }),
+  });
+  if (!openAIResponse.ok) {
+    throw new Error(`OpenAI web research failed (${openAIResponse.status}).`);
   }
+  const openAIPayload = (await openAIResponse.json()) as Record<string, unknown>;
+  reportProgress({
+    stage: "evidence",
+    message: "Verifying sources and price claims",
+    detail: "Rejecting unsupported URLs and separating vendor discovery from price evidence.",
+  });
+  const reference = JSON.parse(extractOutputText(openAIPayload)) as ResearchReference;
+  reportProgress({
+    stage: "benchmark",
+    message: "Calculating the market benchmark",
+    detail: "Normalizing priced samples and calibrating the evidence confidence score.",
+  });
+  return validatedReference(reference, places, collectWebSearchUrls(openAIPayload));
+}
+
+function streamMarketResearch(request: Request) {
+  const encoder = new TextEncoder();
+  return new Response(
+    new ReadableStream({
+      async start(controller) {
+        const send = (event: unknown) =>
+          controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+        try {
+          const reference = await researchMarket(request, (progress) =>
+            send({ type: "progress", progress }),
+          );
+          send({ type: "complete", reference });
+        } catch (error) {
+          const message =
+            error instanceof z.ZodError
+              ? "The confirmed brief is incomplete. Return to intake and fill the required fields."
+              : error instanceof Error
+                ? error.message
+                : "Market research failed.";
+          send({ type: "error", error: message });
+        } finally {
+          controller.close();
+        }
+      },
+    }),
+    {
+      headers: {
+        "Cache-Control": "no-cache, no-transform",
+        "Content-Type": "application/x-ndjson; charset=utf-8",
+        "X-Content-Type-Options": "nosniff",
+      },
+    },
+  );
 }
 
 export const Route = createFileRoute("/api/market-research")({
   server: {
     handlers: {
-      POST: ({ request }) => researchMarket(request),
+      POST: ({ request }) => streamMarketResearch(request),
     },
   },
 });

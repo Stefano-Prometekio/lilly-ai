@@ -1,5 +1,15 @@
-import { ExternalLink, MapPin, Radar, Search, ShieldCheck } from "lucide-react";
+import {
+  Check,
+  Circle,
+  ExternalLink,
+  LoaderCircle,
+  MapPin,
+  Radar,
+  Search,
+  ShieldCheck,
+} from "lucide-react";
 import type { CateringBrief, MarketReference } from "../domain";
+import { marketResearchStages, type MarketResearchProgress } from "../lib/market-research-progress";
 import { formatMoney } from "../lib/procurement";
 
 interface MarketResearchProps {
@@ -7,11 +17,21 @@ interface MarketResearchProps {
   reference: MarketReference;
   onResearch: () => void;
   error?: string;
+  progress?: MarketResearchProgress;
 }
 
-export function MarketResearch({ brief, reference, onResearch, error }: MarketResearchProps) {
+export function MarketResearch({
+  brief,
+  reference,
+  onResearch,
+  error,
+  progress,
+}: MarketResearchProps) {
   const running = reference.status === "researching";
   const hasReference = reference.status === "complete";
+  const activeStageIndex = progress
+    ? marketResearchStages.findIndex((stage) => stage.id === progress.stage)
+    : 0;
 
   return (
     <section className="workspace-grid">
@@ -47,7 +67,7 @@ export function MarketResearch({ brief, reference, onResearch, error }: MarketRe
           disabled={brief.status !== "confirmed" || running}
         >
           <Radar size={18} className={running ? "spin" : ""} />
-          {running ? "Researching live sources..." : "Run market research"}
+          {running ? progress?.message || "Starting live research..." : "Run market research"}
         </button>
         {brief.status !== "confirmed" && (
           <p className="inline-note">Confirm the brief before researching.</p>
@@ -66,7 +86,47 @@ export function MarketResearch({ brief, reference, onResearch, error }: MarketRe
           </span>
         </div>
 
-        {hasReference ? (
+        {running ? (
+          <div className="research-progress" role="status" aria-live="polite">
+            <div className="research-progress__header">
+              <span className="research-progress__orb" aria-hidden="true">
+                <Radar size={22} />
+              </span>
+              <div>
+                <span className="kicker">Lilly is working</span>
+                <strong>{progress?.message || "Starting live research"}</strong>
+                <p>{progress?.detail || "Preparing the evidence search."}</p>
+              </div>
+            </div>
+
+            <ol className="research-progress__steps" aria-label="Market research progress">
+              {marketResearchStages.map((stage, index) => {
+                const complete = index < activeStageIndex;
+                const active = index === activeStageIndex;
+                return (
+                  <li
+                    className={active ? "is-active" : complete ? "is-complete" : ""}
+                    key={stage.id}
+                  >
+                    <span aria-hidden="true">
+                      {complete ? (
+                        <Check size={15} />
+                      ) : active ? (
+                        <LoaderCircle className="spin" size={15} />
+                      ) : (
+                        <Circle size={15} />
+                      )}
+                    </span>
+                    <div>
+                      <strong>{stage.label}</strong>
+                      <small>{complete ? "Completed" : active ? "In progress" : "Waiting"}</small>
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+        ) : hasReference ? (
           <>
             <div className="range-chart">
               <div>

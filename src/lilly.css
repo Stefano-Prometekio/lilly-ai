@@ -499,6 +499,96 @@ textarea {
   color: var(--muted);
   font-size: 0.72rem;
 }
+.research-progress {
+  min-height: 290px;
+  display: grid;
+  align-content: center;
+  gap: 24px;
+  padding: 18px 8px;
+}
+.research-progress__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+.research-progress__header > div {
+  display: grid;
+  gap: 5px;
+}
+.research-progress__header strong {
+  font-size: 1rem;
+}
+.research-progress__header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+.research-progress__orb {
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--green);
+  background: #e5f2e2;
+  box-shadow: 0 0 0 7px rgba(73, 130, 98, 0.08);
+  animation: research-pulse 1.8s ease-in-out infinite;
+}
+.research-progress__steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.research-progress__steps li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  color: #9aa39a;
+  border: 1px solid transparent;
+  border-radius: 12px;
+}
+.research-progress__steps li > span {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 26px;
+  border-radius: 50%;
+  color: #a9b0a8;
+  background: #f2f4ef;
+}
+.research-progress__steps li > div {
+  display: grid;
+  gap: 2px;
+}
+.research-progress__steps strong {
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.research-progress__steps small {
+  font-size: 0.65rem;
+}
+.research-progress__steps .is-complete {
+  color: #5d735f;
+}
+.research-progress__steps .is-complete > span {
+  color: #fff;
+  background: #71977a;
+}
+.research-progress__steps .is-active {
+  color: var(--ink);
+  background: #f5f9f2;
+  border-color: #d6e5d3;
+}
+.research-progress__steps .is-active > span {
+  color: var(--green);
+  background: #e2f0df;
+}
 .range-chart {
   margin: 30px 0 20px;
   padding: 20px;
@@ -916,6 +1006,17 @@ textarea {
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+@keyframes research-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 7px rgba(73, 130, 98, 0.08);
+  }
+  50% {
+    transform: scale(1.04);
+    box-shadow: 0 0 0 12px rgba(73, 130, 98, 0.03);
   }
 }
 
