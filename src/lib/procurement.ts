@@ -9,17 +9,17 @@ export const initialBrief: CateringBrief = {
   id: createLocalId("brief"),
   version: 1,
   status: "draft",
-  eventType: "Corporate reception",
-  eventDate: "2026-09-18",
-  city: "Brussels, Belgium",
+  eventType: "",
+  eventDate: "",
+  city: "",
   venueAddress: "",
-  guestCount: 120,
-  serviceStyle: "Standing reception with passed bites",
-  menuPreference: "Modern seasonal menu",
-  dietaryRequirements: "Vegetarian options and strict nut-allergy controls",
-  staffingHours: 6,
-  targetBudget: 6_000,
-  absoluteMaximum: 7_000,
+  guestCount: 0,
+  serviceStyle: "",
+  menuPreference: "",
+  dietaryRequirements: "",
+  staffingHours: 0,
+  targetBudget: 0,
+  absoluteMaximum: 0,
   radiusKm: 25,
   currency: "EUR",
   mayUseVerifiedLeverage: true,
@@ -38,23 +38,6 @@ export const emptyMarketReference: MarketReference = {
   summary: "Run market research after confirming the brief.",
   sources: [],
 };
-
-export function fallbackMarketReference(brief: CateringBrief): MarketReference {
-  const scale = Math.max(brief.guestCount, 1);
-  return {
-    status: "fallback",
-    lowTotal: Math.round(scale * 32),
-    medianTotal: Math.round(scale * 44),
-    highTotal: Math.round(scale * 62),
-    medianPerGuest: 44,
-    sampleSize: 0,
-    confidence: 0.25,
-    summary:
-      "Illustrative fallback only. Connect the market-baseline Edge Function before using this figure as negotiation evidence.",
-    sources: [],
-    researchedAt: new Date().toISOString(),
-  };
-}
 
 export const initialQuotes: VendorQuote[] = [
   {

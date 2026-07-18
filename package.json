@@ -11,7 +11,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "vitest run",
-    "elevenlabs:create-agent": "node --use-system-ca scripts/create-lilly-agent.mjs"
+    "elevenlabs:create-agent": "node --use-system-ca scripts/create-lilly-agent.mjs",
+    "elevenlabs:update-agent": "node --use-system-ca scripts/update-lilly-agent.mjs"
   },
   "dependencies": {
     "@elevenlabs/react": "^1.10.1",

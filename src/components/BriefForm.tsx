@@ -1,5 +1,11 @@
 import { CheckCircle2, LockKeyhole, Sparkles } from "lucide-react";
+import { useConversationClientTool } from "@elevenlabs/react";
 import type { CateringBrief } from "../domain";
+import {
+  applyBriefFieldUpdate,
+  getMissingBriefFields,
+  type RecordBriefFieldsParams,
+} from "../lib/brief-intake";
 import { VoiceSession } from "./VoiceSession";
 
 interface BriefFormProps {
@@ -12,6 +18,57 @@ export function BriefForm({ brief, onChange, onConfirm }: BriefFormProps) {
   const update = <K extends keyof CateringBrief>(key: K, value: CateringBrief[K]) =>
     onChange({ ...brief, [key]: value });
   const confirmed = brief.status === "confirmed";
+  const missingFields = getMissingBriefFields(brief);
+  const readyToConfirm = missingFields.length === 0;
+
+  useConversationClientTool("record_brief_fields", ({ fields }: RecordBriefFieldsParams) => {
+    if (!fields || brief.status === "confirmed") {
+      return JSON.stringify({
+        success: false,
+        reason: "The brief is frozen or no fields were supplied.",
+      });
+    }
+    const { nextBrief, updatedFields } = applyBriefFieldUpdate(brief, fields);
+    onChange(nextBrief);
+    return JSON.stringify({
+      success: true,
+      updatedFields,
+      missingFields: getMissingBriefFields(nextBrief),
+    });
+  });
+
+  useConversationClientTool("get_intake_state", () =>
+    JSON.stringify({
+      brief: {
+        eventType: brief.eventType,
+        eventDate: brief.eventDate,
+        city: brief.city,
+        venueAddress: brief.venueAddress,
+        guestCount: brief.guestCount,
+        serviceStyle: brief.serviceStyle,
+        menuPreference: brief.menuPreference,
+        dietaryRequirements: brief.dietaryRequirements,
+        staffingHours: brief.staffingHours,
+        targetBudget: brief.targetBudget,
+        absoluteMaximum: brief.absoluteMaximum,
+        radiusKm: brief.radiusKm,
+        currency: brief.currency,
+        mayUseVerifiedLeverage: brief.mayUseVerifiedLeverage,
+        mayDiscloseTargetBudget: brief.mayDiscloseTargetBudget,
+      },
+      missingFields,
+    }),
+  );
+
+  useConversationClientTool("mark_intake_ready_for_review", () =>
+    JSON.stringify({
+      success: readyToConfirm,
+      missingFields,
+      instruction: readyToConfirm
+        ? "The visible draft is ready for the buyer to review and confirm."
+        : "Continue intake one question at a time until the missing fields are supplied.",
+    }),
+  );
 
   return (
     <section className="workspace-grid workspace-grid--intake">
@@ -83,12 +140,20 @@ export function BriefForm({ brief, onChange, onConfirm }: BriefFormProps) {
               onChange={(e) => update("city", e.target.value)}
             />
           </label>
+          <label className="field-grid__wide">
+            <span>Venue address (if known)</span>
+            <input
+              value={brief.venueAddress}
+              disabled={confirmed}
+              onChange={(e) => update("venueAddress", e.target.value)}
+            />
+          </label>
           <label>
             <span>Guest count</span>
             <input
               type="number"
               min="1"
-              value={brief.guestCount}
+              value={brief.guestCount || ""}
               disabled={confirmed}
               onChange={(e) => update("guestCount", Number(e.target.value))}
             />
@@ -128,11 +193,33 @@ export function BriefForm({ brief, onChange, onConfirm }: BriefFormProps) {
             />
           </label>
           <label>
+            <span>Staffing hours</span>
+            <input
+              type="number"
+              min="0"
+              value={brief.staffingHours || ""}
+              disabled={confirmed}
+              onChange={(e) => update("staffingHours", Number(e.target.value))}
+            />
+          </label>
+          <label>
+            <span>Currency</span>
+            <select
+              value={brief.currency}
+              disabled={confirmed}
+              onChange={(e) => update("currency", e.target.value as CateringBrief["currency"])}
+            >
+              <option value="EUR">EUR</option>
+              <option value="USD">USD</option>
+              <option value="GBP">GBP</option>
+            </select>
+          </label>
+          <label>
             <span>Target budget</span>
             <input
               type="number"
               min="0"
-              value={brief.targetBudget}
+              value={brief.targetBudget || ""}
               disabled={confirmed}
               onChange={(e) => update("targetBudget", Number(e.target.value))}
             />
@@ -142,7 +229,7 @@ export function BriefForm({ brief, onChange, onConfirm }: BriefFormProps) {
             <input
               type="number"
               min="0"
-              value={brief.absoluteMaximum}
+              value={brief.absoluteMaximum || ""}
               disabled={confirmed}
               onChange={(e) => update("absoluteMaximum", Number(e.target.value))}
             />
@@ -175,7 +262,12 @@ export function BriefForm({ brief, onChange, onConfirm }: BriefFormProps) {
         </div>
 
         {!confirmed ? (
-          <button className="button button--primary button--wide" type="button" onClick={onConfirm}>
+          <button
+            className="button button--primary button--wide"
+            type="button"
+            onClick={onConfirm}
+            disabled={!readyToConfirm}
+          >
             <CheckCircle2 size={18} /> Confirm brief and freeze version
           </button>
         ) : (
@@ -186,6 +278,16 @@ export function BriefForm({ brief, onChange, onConfirm }: BriefFormProps) {
           >
             Create an amended version
           </button>
+        )}
+        {!confirmed && !readyToConfirm && (
+          <p className="inline-note">
+            Still needed:{" "}
+            {missingFields
+              .join(", ")
+              .replaceAll(/([A-Z])/g, " $1")
+              .toLowerCase()}
+            .
+          </p>
         )}
       </div>
     </section>

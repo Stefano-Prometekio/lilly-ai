@@ -11,7 +11,7 @@ interface MarketResearchProps {
 
 export function MarketResearch({ brief, reference, onResearch, error }: MarketResearchProps) {
   const running = reference.status === "researching";
-  const hasReference = reference.status === "complete" || reference.status === "fallback";
+  const hasReference = reference.status === "complete";
 
   return (
     <section className="workspace-grid">
@@ -28,10 +28,15 @@ export function MarketResearch({ brief, reference, onResearch, error }: MarketRe
           <Search size={20} />
           <div>
             <strong>
-              {brief.serviceStyle} for {brief.guestCount} guests
+              {brief.status === "confirmed"
+                ? `${brief.serviceStyle} for ${brief.guestCount} guests`
+                : "Waiting for a confirmed event brief"}
             </strong>
             <span>
-              <MapPin size={13} /> {brief.city} · within {brief.radiusKm} km
+              <MapPin size={13} />
+              {brief.status === "confirmed"
+                ? `${brief.city} · within ${brief.radiusKm} km`
+                : "Location and radius will come from intake"}
             </span>
           </div>
         </div>
@@ -57,7 +62,7 @@ export function MarketResearch({ brief, reference, onResearch, error }: MarketRe
             <h2>Expected market range</h2>
           </div>
           <span className={`status-pill ${hasReference ? "status-pill--success" : ""}`}>
-            {reference.status === "fallback" ? "Demo fallback" : reference.status}
+            {reference.status}
           </span>
         </div>
 
@@ -83,7 +88,7 @@ export function MarketResearch({ brief, reference, onResearch, error }: MarketRe
                 <strong>{formatMoney(reference.medianPerGuest, brief.currency)}</strong>
               </div>
               <div>
-                <span>Sources</span>
+                <span>Priced samples</span>
                 <strong>{reference.sampleSize || reference.sources.length}</strong>
               </div>
               <div>
@@ -92,15 +97,13 @@ export function MarketResearch({ brief, reference, onResearch, error }: MarketRe
               </div>
             </div>
             <p className="summary-copy">{reference.summary}</p>
-            {reference.status === "fallback" && (
-              <div className="warning-card">
-                <ShieldCheck size={18} />
-                <span>
-                  This value is visibly marked as illustrative and cannot be used as negotiation
-                  leverage.
-                </span>
-              </div>
-            )}
+            <div className="warning-card">
+              <ShieldCheck size={18} />
+              <span>
+                Google Places identifies local suppliers; only cited public pricing evidence is used
+                to calculate this benchmark.
+              </span>
+            </div>
             <div className="source-list">
               {reference.sources.map((source) => (
                 <a href={source.url} target="_blank" rel="noreferrer" key={source.url}>

@@ -1,28 +1,17 @@
 import type { CateringBrief, MarketReference } from "../domain";
-import { fallbackMarketReference } from "./procurement";
 
 export async function researchMarket(brief: CateringBrief): Promise<MarketReference> {
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-  const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseKey) {
-    await new Promise((resolve) => window.setTimeout(resolve, 900));
-    return fallbackMarketReference(brief);
-  }
-
-  const response = await fetch(`${supabaseUrl}/functions/v1/market-baseline`, {
+  const response = await fetch("/api/market-research", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${supabaseKey}`,
-      apikey: supabaseKey,
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ brief }),
   });
 
   if (!response.ok) {
-    const message = await response.text();
-    throw new Error(message || "Market research failed");
+    const payload = (await response.json().catch(() => undefined)) as
+      | { error?: string }
+      | undefined;
+    throw new Error(payload?.error || "Live market research failed.");
   }
 
   return (await response.json()) as MarketReference;
