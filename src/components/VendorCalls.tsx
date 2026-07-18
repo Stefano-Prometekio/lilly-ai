@@ -205,15 +205,24 @@ export function VendorCalls({
             ...s,
             log: [...s.log, `Connected with ${quote.vendorName} (${conversationId}). Waiting for call to end...`],
           }));
-          await waitForCallToEnd(conversationId, controller.signal);
+          const reason = await waitForCallToEnd(conversationId, controller.signal);
+          if (reason === "unanswered") {
+            setSeq((s) => ({
+              ...s,
+              log: [...s.log, `${quote.vendorName} did not answer. Moving on.`],
+            }));
+            onUpdate({ ...quote, status: "pending" });
+          } else {
+            setSeq((s) => ({ ...s, log: [...s.log, `Finished call with ${quote.vendorName}.`] }));
+          }
         } else {
           setSeq((s) => ({
             ...s,
             log: [...s.log, `Call to ${quote.vendorName} placed (no conversation id). Waiting 60s.`],
           }));
           await new Promise((r) => setTimeout(r, 60000));
+          setSeq((s) => ({ ...s, log: [...s.log, `Finished call with ${quote.vendorName}.`] }));
         }
-        setSeq((s) => ({ ...s, log: [...s.log, `Finished call with ${quote.vendorName}.`] }));
       } catch (e) {
         setSeq((s) => ({
           ...s,
