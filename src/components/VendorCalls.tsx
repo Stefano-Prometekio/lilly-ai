@@ -1,9 +1,9 @@
-import { CheckCircle2, ClipboardPen, Headphones, PhoneCall, PhoneOutgoing, UserRound } from "lucide-react";
+import { CheckCircle2, ClipboardPen, Headphones, PhoneOutgoing, UserRound } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { CateringBrief, MarketVendor, VendorQuote } from "../domain";
 import { VoiceSession } from "./VoiceSession";
+import { BrowserPhoneCall, type BrowserCallRequest } from "./BrowserPhoneCall";
 
-const DEMO_PHONE_NUMBER = "+32465904513";
 
 async function placeElevenLabsCall(brief: CateringBrief, quote: VendorQuote, toNumber: string) {
   const res = await fetch("/api/outbound-call", {
