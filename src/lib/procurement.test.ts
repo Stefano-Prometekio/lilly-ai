@@ -12,6 +12,7 @@ const reference: MarketReference = {
   confidence: 0.8,
   summary: "Fixture",
   sources: [],
+  vendors: [],
 };
 
 function quoteWithTotal(total: number): VendorQuote {

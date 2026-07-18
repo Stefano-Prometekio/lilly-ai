@@ -35,6 +35,7 @@ const reference: MarketReference = {
   confidence: 0.7,
   summary: "Evidence-backed fixture",
   sources: [],
+  vendors: [],
 };
 
 function streamedResponse(events: unknown[]) {
