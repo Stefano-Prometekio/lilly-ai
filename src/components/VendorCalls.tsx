@@ -337,10 +337,18 @@ export function VendorCalls({
                     ★ {vendor.rating} ({vendor.reviewCount ?? 0} reviews)
                   </span>
                 )}
-                <span className="persona-label">
-                  <UserRound size={14} /> Private card: {copy.label}
-                </span>
-                <p>{copy.objective}</p>
+                {quote.status === "captured" ? (
+                  <>
+                    <span className="persona-label">
+                      <UserRound size={14} /> Negotiation style: {copy.label}
+                    </span>
+                    <p>{copy.objective}</p>
+                  </>
+                ) : (
+                  <span className="persona-label" style={{ opacity: 0.6 }}>
+                    <UserRound size={14} /> Negotiation style assigned after the call
+                  </span>
+                )}
                 <button
                   className="button button--secondary button--wide"
                   type="button"
