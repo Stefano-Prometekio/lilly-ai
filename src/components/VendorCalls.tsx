@@ -1,9 +1,61 @@
-import { CheckCircle2, ClipboardPen, Headphones, PhoneCall, UserRound } from "lucide-react";
-import { useState } from "react";
-import type { CateringBrief, VendorQuote } from "../domain";
+import { CheckCircle2, ClipboardPen, Headphones, PhoneCall, PhoneOutgoing, UserRound } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import type { CateringBrief, MarketVendor, VendorQuote } from "../domain";
 import { VoiceSession } from "./VoiceSession";
 
 const DEMO_PHONE_NUMBER = "+32465904513";
+
+async function placeElevenLabsCall(brief: CateringBrief, quote: VendorQuote, toNumber: string) {
+  const res = await fetch("/api/outbound-call", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      toNumber,
+      dynamicVariables: {
+        campaign_id: brief.id,
+        brief_id: brief.id,
+        brief_version: brief.version,
+        call_session_id: quote.id,
+        call_mode: "INITIAL_QUOTE",
+        vendor_name: quote.vendorName,
+        event_summary: `${brief.eventType}, ${brief.eventDate}, ${brief.city}, ${brief.guestCount} guests, ${brief.serviceStyle}`,
+        hard_constraints_summary: brief.dietaryRequirements,
+      },
+    }),
+  });
+  const json = await res.json();
+  if (!res.ok) {
+    throw new Error(
+      typeof json?.detail === "string" ? json.detail : JSON.stringify(json?.detail ?? json),
+    );
+  }
+  const conversationId: string | undefined =
+    json?.result?.conversation_id || json?.result?.conversationId;
+  return { conversationId, raw: json };
+}
+
+async function waitForCallToEnd(conversationId: string, signal: AbortSignal) {
+  const start = Date.now();
+  const maxMs = 15 * 60 * 1000;
+  while (!signal.aborted && Date.now() - start < maxMs) {
+    await new Promise((r) => setTimeout(r, 4000));
+    if (signal.aborted) return;
+    try {
+      const res = await fetch(
+        `/api/call-status?conversation_id=${encodeURIComponent(conversationId)}`,
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const status: string | undefined = data?.status;
+        if (status && status !== "in-progress" && status !== "processing" && status !== "initiated") {
+          return;
+        }
+      }
+    } catch {
+      // keep polling
+    }
+  }
+}
 
 function PhoneCallLauncher({
   brief,
@@ -20,32 +72,8 @@ function PhoneCallLauncher({
   async function placeCall() {
     setStatus({ kind: "calling" });
     try {
-      const res = await fetch("/api/outbound-call", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          toNumber: phone,
-          dynamicVariables: {
-            campaign_id: brief.id,
-            brief_id: brief.id,
-            brief_version: brief.version,
-            call_session_id: quote.id,
-            call_mode: "INITIAL_QUOTE",
-            vendor_name: quote.vendorName,
-            event_summary: `${brief.eventType}, ${brief.eventDate}, ${brief.city}, ${brief.guestCount} guests, ${brief.serviceStyle}`,
-            hard_constraints_summary: brief.dietaryRequirements,
-          },
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        setStatus({
-          kind: "error",
-          msg: typeof json?.detail === "string" ? json.detail : JSON.stringify(json?.detail ?? json),
-        });
-      } else {
-        setStatus({ kind: "ok", msg: "Call placed. Lilly is dialing." });
-      }
+      await placeElevenLabsCall(brief, quote, phone);
+      setStatus({ kind: "ok", msg: "Call placed. Lilly is dialing." });
     } catch (e) {
       setStatus({ kind: "error", msg: (e as Error).message });
     }
@@ -107,19 +135,84 @@ const personaCopy = {
 interface VendorCallsProps {
   brief: CateringBrief;
   quotes: VendorQuote[];
+  vendors?: MarketVendor[];
   activeQuoteId?: string;
   onActivate: (id?: string) => void;
   onUpdate: (quote: VendorQuote) => void;
 }
 
+interface SequentialState {
+  running: boolean;
+  currentIndex: number;
+  log: string[];
+  error?: string;
+}
+
 export function VendorCalls({
   brief,
   quotes,
+  vendors,
   activeQuoteId,
   onActivate,
   onUpdate,
 }: VendorCallsProps) {
   const activeQuote = quotes.find((quote) => quote.id === activeQuoteId);
+  const abortRef = useRef<AbortController | null>(null);
+  const [seq, setSeq] = useState<SequentialState>({
+    running: false,
+    currentIndex: -1,
+    log: [],
+  });
+
+  useEffect(() => () => abortRef.current?.abort(), []);
+
+  async function runAllCalls() {
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setSeq({ running: true, currentIndex: 0, log: [], error: undefined });
+
+    for (let i = 0; i < quotes.length; i++) {
+      if (controller.signal.aborted) break;
+      const quote = quotes[i];
+      setSeq((s) => ({
+        ...s,
+        currentIndex: i,
+        log: [...s.log, `Calling ${quote.vendorName}...`],
+      }));
+      onUpdate({ ...quote, status: "calling" });
+      try {
+        const { conversationId } = await placeElevenLabsCall(brief, quote, DEMO_PHONE_NUMBER);
+        if (conversationId) {
+          setSeq((s) => ({
+            ...s,
+            log: [...s.log, `Connected with ${quote.vendorName} (${conversationId}). Waiting for call to end...`],
+          }));
+          await waitForCallToEnd(conversationId, controller.signal);
+        } else {
+          setSeq((s) => ({
+            ...s,
+            log: [...s.log, `Call to ${quote.vendorName} placed (no conversation id). Waiting 60s.`],
+          }));
+          await new Promise((r) => setTimeout(r, 60000));
+        }
+        setSeq((s) => ({ ...s, log: [...s.log, `Finished call with ${quote.vendorName}.`] }));
+      } catch (e) {
+        setSeq((s) => ({
+          ...s,
+          error: (e as Error).message,
+          log: [...s.log, `Error calling ${quote.vendorName}: ${(e as Error).message}`],
+          running: false,
+        }));
+        return;
+      }
+    }
+    setSeq((s) => ({ ...s, running: false, currentIndex: -1, log: [...s.log, "All calls complete."] }));
+  }
+
+  function stopAllCalls() {
+    abortRef.current?.abort();
+    setSeq((s) => ({ ...s, running: false }));
+  }
 
   return (
     <section className="calls-layout">
@@ -127,23 +220,75 @@ export function VendorCalls({
         <div className="section-heading">
           <div>
             <span className="kicker">Round one</span>
-            <h2>Three live vendor conversations</h2>
+            <h2>Vendors from live market research</h2>
           </div>
           <span className="status-pill">
-            {quotes.filter((q) => q.status === "captured").length}/3 captured
+            {quotes.filter((q) => q.status === "captured").length}/{quotes.length} captured
           </span>
         </div>
         <p className="panel-intro">
-          Choose a private behavior card, start a browser voice session, and role-play that vendor.
-          Lilly is never told the persona.
+          Lilly will call each vendor back-to-back at the demo number{" "}
+          <strong>{DEMO_PHONE_NUMBER}</strong>, introduce herself, and gather a full quote before
+          moving on.
         </p>
-        <div className="vendor-grid">
+
+        <div className="voice-session" style={{ flexWrap: "wrap" }}>
+          <div className="voice-orb" aria-hidden="true">
+            <PhoneOutgoing size={26} />
+          </div>
+          <div className="voice-session__copy">
+            <strong>Sequential outbound calls</strong>
+            <span>
+              {seq.running
+                ? `Calling vendor ${seq.currentIndex + 1} of ${quotes.length}: ${quotes[seq.currentIndex]?.vendorName ?? ""}`
+                : seq.log.length
+                  ? seq.log[seq.log.length - 1]
+                  : `Ready to call ${quotes.length} vendors in a row.`}
+            </span>
+          </div>
+          <div className="voice-session__actions" style={{ gap: 8 }}>
+            {seq.running ? (
+              <button className="button button--secondary" type="button" onClick={stopAllCalls}>
+                Stop
+              </button>
+            ) : (
+              <button className="button button--primary" type="button" onClick={runAllCalls}>
+                <PhoneOutgoing size={17} /> Proceed with vendor calls
+              </button>
+            )}
+          </div>
+        </div>
+
+        {seq.log.length > 0 && (
+          <ol
+            style={{
+              marginTop: 12,
+              padding: "10px 14px",
+              background: "rgba(0,0,0,0.03)",
+              borderRadius: 8,
+              fontSize: 13,
+              maxHeight: 160,
+              overflowY: "auto",
+            }}
+          >
+            {seq.log.map((line, i) => (
+              <li key={i} style={{ listStyle: "decimal inside" }}>
+                {line}
+              </li>
+            ))}
+          </ol>
+        )}
+
+        <div className="vendor-grid" style={{ marginTop: 16 }}>
           {quotes.map((quote, index) => {
             const copy = personaCopy[quote.persona];
+            const vendor = vendors?.[index];
+            const isCurrent = seq.running && seq.currentIndex === index;
             return (
               <article
                 className={`vendor-card ${activeQuoteId === quote.id ? "vendor-card--active" : ""}`}
                 key={quote.id}
+                style={isCurrent ? { outline: "2px solid #4f46e5" } : undefined}
               >
                 <div className="vendor-card__top">
                   <span className="vendor-index">0{index + 1}</span>
@@ -157,6 +302,14 @@ export function VendorCalls({
                   onChange={(event) => onUpdate({ ...quote, vendorName: event.target.value })}
                   aria-label={`Vendor ${index + 1} name`}
                 />
+                {vendor?.address && (
+                  <span style={{ fontSize: 12, color: "#666" }}>{vendor.address}</span>
+                )}
+                {vendor?.rating != null && (
+                  <span style={{ fontSize: 12, color: "#666" }}>
+                    ★ {vendor.rating} ({vendor.reviewCount ?? 0} reviews)
+                  </span>
+                )}
                 <span className="persona-label">
                   <UserRound size={14} /> Private card: {copy.label}
                 </span>
