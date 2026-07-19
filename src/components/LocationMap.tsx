@@ -194,8 +194,8 @@ export function LocationMap({
         {query && !apiKey && (
           <div className="location-map__placeholder">
             <MapPin size={28} />
-            <strong>Google Maps needs a browser API key</strong>
-            <span>Set VITE_GOOGLE_MAPS_API_KEY to enable the live radius map.</span>
+            <strong>Google Maps key not configured</strong>
+            <span>Add GOOGLE_API_KEY on the server to enable the live radius map.</span>
             <a href={mapsSearchUrl} target="_blank" rel="noreferrer">
               Open location in Google Maps <ExternalLink size={14} />
             </a>
