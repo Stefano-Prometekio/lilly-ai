@@ -4,8 +4,7 @@ import {
   useConversationControls,
   useConversationInput,
   useConversationStatus,
-  useRawConversationRef,
-  useRegisterCallbacks,
+  useRawConversation,
 } from "@elevenlabs/react";
 import { getElevenLabsConversationToken, LILLY_PUBLIC_AGENT_ID } from "../lib/elevenlabs";
 
