@@ -143,7 +143,7 @@ export function BrowserPhoneCall({ call, onDeclined, onEnded }: BrowserPhoneCall
           <strong>{call.vendorName}</strong>
           <span>{call.vendorAddress || "Catering vendor"}</span>
           <span className="phone-caller__meta">
-            {phase === "ringing" && "Lilly (AI procurement) is calling"}
+            {phase === "ringing" && "Lilly (event planning assistant) is calling"}
             {phase === "connecting" && "Opening secure voice line..."}
             {phase === "live" && (
               <>
