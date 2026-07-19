@@ -219,18 +219,30 @@ export function VendorCalls({
         log: [...current.log, `Ringing ${quote.vendorName} in the browser...`],
       }));
       onUpdate({ ...quote, status: "calling", outcome: undefined });
-      const reason = await waitForBrowserCall(quote);
+      const { reason, conversationId } = await waitForBrowserCall(quote);
       if (abortRef.current.aborted) break;
-      onUpdate(finalizeUnquotedCall(quote, reason));
-      setSeq((current) => ({
-        ...current,
-        log: [
-          ...current.log,
+
+      let finalized: VendorQuote | null = null;
+      let logLine = "";
+      if (reason === "ended" && conversationId) {
+        setSeq((current) => ({
+          ...current,
+          log: [...current.log, `Extracting quote from ${quote.vendorName} transcript...`],
+        }));
+        finalized = await extractQuoteFromTranscript(quote, conversationId);
+        if (finalized) {
+          logLine = `${quote.vendorName}: quote captured from transcript (${finalized.outcome?.kind ?? "unknown"}).`;
+        }
+      }
+      if (!finalized) {
+        finalized = finalizeUnquotedCall(quote, reason);
+        logLine =
           reason === "declined"
             ? `${quote.vendorName}: documented decline.`
-            : `${quote.vendorName}: call ended without a finalized quote; documented for follow-up.`,
-        ],
-      }));
+            : `${quote.vendorName}: call ended without a usable quote; documented for follow-up.`;
+      }
+      onUpdate(finalized);
+      setSeq((current) => ({ ...current, log: [...current.log, logLine] }));
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
     setSeq((current) => ({
