@@ -135,8 +135,7 @@ function App() {
     setBrief(demoBrief);
     setMarketReference(demoMarketReference);
     setQuotes(createDemoQuotes(demoBrief));
-    setFinalistId(undefined);
-    setNegotiationPlan(undefined);
+    setFinalistIds([]);
     setActiveQuoteId(undefined);
     setDemoMode(true);
     setStep("intake");
@@ -284,10 +283,14 @@ function App() {
             brief={brief}
             reference={marketReference}
             quotes={normalizedQuotes}
-            onSelectFinalist={(id) => {
-              const selectedFinalist = normalizedQuotes.find((quote) => quote.id === id);
-              setFinalistId(id);
-              setNegotiationPlan(buildNegotiationPlan(selectedFinalist, normalizedQuotes, brief));
+            selectedIds={finalistIds}
+            onToggleSelect={(id) =>
+              setFinalistIds((current) =>
+                current.includes(id) ? current.filter((x) => x !== id) : [...current, id],
+              )
+            }
+            onProceed={(ids) => {
+              setFinalistIds(ids);
               setStep("negotiate");
             }}
           />
@@ -295,9 +298,10 @@ function App() {
         {step === "negotiate" && (
           <Negotiation
             brief={brief}
-            finalist={finalist}
-            plan={negotiationPlan}
+            finalists={finalists}
+            plans={negotiationPlans}
             onUpdate={updateQuote}
+            onAllDone={() => setStep("recommend")}
           />
         )}
         {step === "recommend" && <Recommendation brief={brief} quotes={normalizedQuotes} />}
