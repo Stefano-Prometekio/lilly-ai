@@ -92,13 +92,13 @@ function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <button className="brand" type="button" onClick={() => setStep("intake")}>
+        <a className="brand" href="/">
           <span className="brand-mark">L</span>
           <span>
             <strong>Lilly</strong>
             <small>Your event planning assistant</small>
           </span>
-        </button>
+        </a>
         <div className="campaign-chip">
           <span className="live-dot" /> Catering campaign · Brief v{brief.version}
         </div>
