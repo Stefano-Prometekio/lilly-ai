@@ -67,8 +67,10 @@ export function Recommendation({ brief, quotes }: RecommendationProps) {
     return (
       <section className="panel empty-state">
         <Sparkles size={40} />
-        <strong>No evidence-backed recommendation yet</strong>
-        <span>Complete at least one eligible itemized quote before generating the report.</span>
+        <strong>Your recommendation is not ready yet</strong>
+        <span>
+          Complete at least one comparable itemized offer to see Lilly&apos;s recommendation.
+        </span>
       </section>
     );
   }
@@ -80,21 +82,21 @@ export function Recommendation({ brief, quotes }: RecommendationProps) {
     <section className="recommendation-layout recommendation-layout--report">
       <div className="panel recommendation-hero">
         <div className="eyebrow">
-          <Sparkles size={15} /> Lilly&apos;s evidence-backed recommendation
+          <Sparkles size={15} /> Lilly&apos;s recommendation
         </div>
         <div className="recommendation-badge">
           <Trophy size={24} />
         </div>
         <h1>{recommended.vendorName}</h1>
-        <p className="lede">Best validated overall value for the exact confirmed catering brief.</p>
+        <p className="lede">The strongest overall value for your confirmed event plan.</p>
         <strong className="recommendation-price">
           {formatMoney(recommended.normalizedTotal, brief.currency)}
         </strong>
-        <span className="score-label">Overall value score {recommended.score}/100</span>
+        <span className="score-label">Overall value score · {recommended.score}/100</span>
         <p className="recommendation-reason">
           This offer combines {Math.round(recommended.completeness * 100)}% completeness,{" "}
-          {Math.round(recommended.evidenceConfidence * 100)}% evidence confidence, and commercial
-          terms that are stronger than the other validated options.
+          {Math.round(recommended.evidenceConfidence * 100)}% confidence, and terms that are
+          stronger than the other comparable options.
           {lowest.id !== recommended.id && (
             <>
               {" "}
@@ -109,13 +111,13 @@ export function Recommendation({ brief, quotes }: RecommendationProps) {
         </p>
         {negotiation && (
           <div className="negotiation-result-card">
-            <span>Negotiated change caused by verified leverage</span>
+            <span>Offer improvement</span>
             <strong>
               {formatMoney(negotiation.initialTotal, brief.currency)} →{" "}
               {formatMoney(negotiation.finalTotal, brief.currency)}
             </strong>
             <p>{negotiation.changedTerms}</p>
-            <small>Leverage evidence: {negotiation.leverageEvidenceId}</small>
+            <small>Supported by a comparable vendor offer</small>
           </div>
         )}
       </div>
@@ -126,7 +128,7 @@ export function Recommendation({ brief, quotes }: RecommendationProps) {
             <CircleDollarSign size={22} />
           </div>
           <div>
-            <span>Lowest confirmed normalized cost</span>
+            <span>Lowest comparable cost</span>
             <strong>{lowest.vendorName}</strong>
             <p>{formatMoney(lowest.normalizedTotal, brief.currency)}</p>
           </div>
@@ -136,9 +138,9 @@ export function Recommendation({ brief, quotes }: RecommendationProps) {
             <BadgeCheck size={22} />
           </div>
           <div>
-            <span>Frozen brief proof</span>
-            <strong>Brief v{brief.version}</strong>
-            <p>SHA-256 {brief.contentHash?.slice(0, 16)}… reused across every eligible quote.</p>
+            <span>Fair comparison</span>
+            <strong>Event plan v{brief.version}</strong>
+            <p>The same confirmed brief was used for every comparable vendor offer.</p>
           </div>
         </article>
         <article className="panel mini-result">
@@ -146,12 +148,12 @@ export function Recommendation({ brief, quotes }: RecommendationProps) {
             <Headphones size={22} />
           </div>
           <div>
-            <span>Recording status</span>
-            <strong>{recommendedRecording ? "Recording cited" : "Recording not supplied"}</strong>
+            <span>Conversation record</span>
+            <strong>{recommendedRecording ? "Recording linked" : "Transcript available"}</strong>
             <p>
               {recommendedRecording
-                ? "The report links the call recording below."
-                : "Transcript evidence is present; add the webhook recording URL before judging."}
+                ? "The vendor conversation is linked below."
+                : "The supporting transcript excerpt is included below."}
             </p>
           </div>
         </article>
@@ -160,8 +162,8 @@ export function Recommendation({ brief, quotes }: RecommendationProps) {
       <div className="panel full-report">
         <div className="section-heading">
           <div>
-            <span className="kicker">Final ranked report</span>
-            <h2>All comparable itemized quotes</h2>
+            <span className="kicker">Complete comparison</span>
+            <h2>All comparable vendor offers</h2>
           </div>
           <span className="status-pill status-pill--success">{ranked.length} ranked</span>
         </div>
@@ -198,21 +200,27 @@ export function Recommendation({ brief, quotes }: RecommendationProps) {
                   <dd>{quote.validUntil}</dd>
                 </div>
               </dl>
-              <div className="evidence-list">
-                {quote.evidence.map(renderEvidenceLink)}
-                {!quote.evidence.some((evidence) => evidence.kind === "recording") && (
-                  <span className="inline-note">
-                    Recording unavailable for this dry-run outcome.
-                  </span>
-                )}
-              </div>
+              <details className="report-evidence">
+                <summary>
+                  View {quote.evidence.length} supporting{" "}
+                  {quote.evidence.length === 1 ? "item" : "items"}
+                </summary>
+                <div className="evidence-list">
+                  {quote.evidence.map(renderEvidenceLink)}
+                  {!quote.evidence.some((evidence) => evidence.kind === "recording") && (
+                    <span className="inline-note">
+                      A recording was not supplied for this outcome.
+                    </span>
+                  )}
+                </div>
+              </details>
             </article>
           ))}
         </div>
 
         {nonQuoteOutcomes.length > 0 && (
           <div className="other-outcomes">
-            <span className="kicker">Other structured outcomes</span>
+            <span className="kicker">Other vendor outcomes</span>
             {nonQuoteOutcomes.map((quote) => (
               <article key={quote.id}>
                 <strong>{quote.vendorName}</strong>

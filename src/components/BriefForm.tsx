@@ -99,10 +99,8 @@ export function BriefForm({ brief, onChange, onConfirm, onLoadDemo }: BriefFormP
         lowerName.endsWith(".docx") ||
         lowerName.endsWith(".pptx") ||
         file.type === "application/pdf" ||
-        file.type ===
-          "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
-        file.type ===
-          "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+        file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+        file.type === "application/vnd.openxmlformats-officedocument.presentationml.presentation";
 
       let fields: Partial<Parameters<typeof applyBriefFieldUpdate>[1]>;
       if (isRichDoc) {
@@ -162,12 +160,12 @@ export function BriefForm({ brief, onChange, onConfirm, onLoadDemo }: BriefFormP
     <section className="workspace-grid workspace-grid--intake">
       <div className="panel panel--hero">
         <div className="eyebrow">
-          <Sparkles size={15} /> Voice-guided intake
+          <Sparkles size={15} /> Guided event planning
         </div>
-        <h1>Tell Lilly what you need.</h1>
+        <h1>Tell Lilly about your event.</h1>
         <p className="lede">
-          Speak naturally while Lilly turns your event into one complete, comparable specification.
-          You remain in control of every field.
+          Talk it through, import what you already have, or fill in the details yourself. Lilly
+          turns it into one clear brief that every vendor can respond to fairly.
         </p>
 
         <VoiceSession
@@ -185,8 +183,8 @@ export function BriefForm({ brief, onChange, onConfirm, onLoadDemo }: BriefFormP
           <div>
             <FileJson2 size={18} />
             <span>
-            <strong>Import an existing brief or inventory</strong>
-              <small>PDF, Word, PowerPoint, JSON, CSV, or key-value text.</small>
+              <strong>Already have an event document?</strong>
+              <small>Import a PDF, Word, PowerPoint, JSON, CSV, or text file.</small>
             </span>
           </div>
           <label className="button button--secondary document-button">
@@ -209,17 +207,13 @@ export function BriefForm({ brief, onChange, onConfirm, onLoadDemo }: BriefFormP
           ))}
         </div>
 
-        <button
-          className="button button--secondary button--wide"
-          type="button"
-          onClick={onLoadDemo}
-        >
-          <FlaskConical size={17} /> Load transparent dry-run evidence
+        <button className="button button--quiet button--wide" type="button" onClick={onLoadDemo}>
+          <FlaskConical size={17} /> Preview with a sample event
         </button>
 
         <div className="trust-row">
           <span>
-            <LockKeyhole size={15} /> You approve the final brief
+            <LockKeyhole size={15} /> You approve the final event plan
           </span>
           <span>
             <CheckCircle2 size={15} /> Lilly cannot place a booking
@@ -236,15 +230,38 @@ export function BriefForm({ brief, onChange, onConfirm, onLoadDemo }: BriefFormP
       <div className="panel form-panel">
         <div className="section-heading">
           <div>
-            <span className="kicker">Canonical brief</span>
-            <h2>Event requirements</h2>
+            <span className="kicker">Your event brief</span>
+            <h2>Event details</h2>
           </div>
           <span className={`status-pill ${confirmed ? "status-pill--success" : ""}`}>
             {confirmed ? `Confirmed v${brief.version}` : "Draft"}
           </span>
         </div>
 
-        <div className="field-grid">
+        <div className={`brief-completion ${readyToConfirm ? "brief-completion--ready" : ""}`}>
+          <div className="brief-completion__ring" aria-hidden="true">
+            {readyToConfirm ? <CheckCircle2 size={22} /> : <span>{missingFields.length}</span>}
+          </div>
+          <div>
+            <strong>
+              {readyToConfirm ? "Your brief is ready to confirm" : "Complete your event brief"}
+            </strong>
+            <span>
+              {readyToConfirm
+                ? "Review the details below, then lock this version for vendor outreach."
+                : `${missingFields.length} ${missingFields.length === 1 ? "detail is" : "details are"} still needed.`}
+            </span>
+          </div>
+        </div>
+
+        <div className="form-section-heading">
+          <span>01</span>
+          <div>
+            <strong>Event essentials</strong>
+            <small>When and where the event will happen</small>
+          </div>
+        </div>
+        <div className="field-grid form-section-fields">
           <label>
             <span>Event type</span>
             <input
@@ -279,16 +296,6 @@ export function BriefForm({ brief, onChange, onConfirm, onLoadDemo }: BriefFormP
             />
           </label>
           <label>
-            <span>Guest count</span>
-            <input
-              type="number"
-              min="1"
-              value={brief.guestCount || ""}
-              disabled={confirmed}
-              onChange={(e) => update("guestCount", Number(e.target.value))}
-            />
-          </label>
-          <label>
             <span>Search radius (km)</span>
             <input
               type="number"
@@ -296,6 +303,26 @@ export function BriefForm({ brief, onChange, onConfirm, onLoadDemo }: BriefFormP
               value={brief.radiusKm}
               disabled={confirmed}
               onChange={(e) => update("radiusKm", Number(e.target.value))}
+            />
+          </label>
+        </div>
+
+        <div className="form-section-heading">
+          <span>02</span>
+          <div>
+            <strong>Guests, food, and service</strong>
+            <small>The experience vendors should price</small>
+          </div>
+        </div>
+        <div className="field-grid form-section-fields">
+          <label>
+            <span>Guest count</span>
+            <input
+              type="number"
+              min="1"
+              value={brief.guestCount || ""}
+              disabled={confirmed}
+              onChange={(e) => update("guestCount", Number(e.target.value))}
             />
           </label>
           <label className="field-grid__wide">
@@ -332,6 +359,16 @@ export function BriefForm({ brief, onChange, onConfirm, onLoadDemo }: BriefFormP
               onChange={(e) => update("staffingHours", Number(e.target.value))}
             />
           </label>
+        </div>
+
+        <div className="form-section-heading">
+          <span>03</span>
+          <div>
+            <strong>Budget</strong>
+            <small>Your preferred range and firm limit</small>
+          </div>
+        </div>
+        <div className="field-grid form-section-fields">
           <label>
             <span>Currency</span>
             <select
@@ -369,8 +406,8 @@ export function BriefForm({ brief, onChange, onConfirm, onLoadDemo }: BriefFormP
         <div className="brief-map-block">
           <div className="map-section-heading">
             <div>
-              <span className="kicker">Live search area</span>
-              <h3>Venue and supplier radius</h3>
+              <span className="kicker">Where Lilly should look</span>
+              <h3>Venue and vendor search area</h3>
             </div>
             <span>Updates with the location and radius above</span>
           </div>
@@ -381,6 +418,13 @@ export function BriefForm({ brief, onChange, onConfirm, onLoadDemo }: BriefFormP
         </div>
 
         <div className="authority-card">
+          <div className="authority-card__heading">
+            <span>04</span>
+            <div>
+              <strong>Conversation preferences</strong>
+              <small>Decide what Lilly may share with vendors</small>
+            </div>
+          </div>
           <label className="check-row">
             <input
               type="checkbox"
@@ -401,7 +445,7 @@ export function BriefForm({ brief, onChange, onConfirm, onLoadDemo }: BriefFormP
           </label>
           <div className="check-row check-row--locked">
             <LockKeyhole size={16} />
-            <span>Booking authority is disabled for this MVP.</span>
+            <span>Lilly cannot place a booking or commit on your behalf.</span>
           </div>
         </div>
 
@@ -412,7 +456,7 @@ export function BriefForm({ brief, onChange, onConfirm, onLoadDemo }: BriefFormP
             onClick={() => void handleConfirm()}
             disabled={!readyToConfirm}
           >
-            <CheckCircle2 size={18} /> Confirm brief and freeze version
+            <CheckCircle2 size={18} /> Confirm this event brief
           </button>
         ) : (
           <button
@@ -420,7 +464,7 @@ export function BriefForm({ brief, onChange, onConfirm, onLoadDemo }: BriefFormP
             type="button"
             onClick={() => onChange(amendCanonicalBrief(brief))}
           >
-            Create an amended version
+            Update this event brief
           </button>
         )}
         {!confirmed && !readyToConfirm && (

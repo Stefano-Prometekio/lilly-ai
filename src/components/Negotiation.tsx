@@ -36,10 +36,8 @@ export function Negotiation({ brief, finalist, plan, onUpdate }: NegotiationProp
     return (
       <section className="panel empty-state">
         <Handshake size={40} />
-        <strong>No evidence-eligible negotiation plan</strong>
-        <span>
-          Select a finalist with a lower, transcript-backed alternative on the same confirmed brief.
-        </span>
+        <strong>No offer is ready to improve yet</strong>
+        <span>Choose a comparable finalist with a supported alternative first.</span>
       </section>
     );
   }
@@ -125,12 +123,12 @@ export function Negotiation({ brief, finalist, plan, onUpdate }: NegotiationProp
     <section className="workspace-grid">
       <div className="panel">
         <div className="eyebrow">
-          <Target size={15} /> Frozen evidence plan
+          <Target size={15} /> Offer improvement plan
         </div>
-        <h1>Make one precise, provable ask.</h1>
+        <h1>Make one clear, well-supported ask.</h1>
         <p className="lede">
-          The plan is tied to brief fingerprint {plan.briefHash.slice(0, 12)}… and evidence item{" "}
-          {plan.leverageEvidenceId}. The agent receives the permitted claim, not a free-form bid.
+          Lilly uses the strongest comparable offer to request a measurable improvement without
+          changing your event scope or revealing more than you approved.
         </p>
 
         <div className="negotiation-plan">
@@ -139,15 +137,15 @@ export function Negotiation({ brief, finalist, plan, onUpdate }: NegotiationProp
             <strong>{finalist.vendorName}</strong>
           </div>
           <div>
-            <span>Initial normalized total</span>
+            <span>Current comparable total</span>
             <strong>{formatMoney(initialTotal, brief.currency)}</strong>
           </div>
           <div>
-            <span>Verified alternative</span>
+            <span>Best supported alternative</span>
             <strong>{formatMoney(plan.alternativeTotal, brief.currency)}</strong>
           </div>
           <div>
-            <span>Evidence-backed gap</span>
+            <span>Opportunity to improve</span>
             <strong>{formatMoney(initialTotal - plan.alternativeTotal, brief.currency)}</strong>
           </div>
         </div>
@@ -155,24 +153,38 @@ export function Negotiation({ brief, finalist, plan, onUpdate }: NegotiationProp
         <div className="claim-card">
           <ShieldCheck size={19} />
           <div>
-            <strong>Permitted claim</strong>
+            <strong>What Lilly may say</strong>
             <span>“{plan.permittedClaim}”</span>
           </div>
         </div>
         <div className="target-ask">
           <ArrowDownRight size={22} />
           <div>
-            <span>Targeted request</span>
+            <span>The ask</span>
             <strong>{plan.targetRequest}</strong>
           </div>
         </div>
+        <details className="technical-proof technical-proof--compact">
+          <summary>
+            <span>
+              <strong>View verification details</strong>
+              <small>
+                Plan {plan.briefHash.slice(0, 12)}… · source {plan.leverageEvidenceId}
+              </small>
+            </span>
+          </summary>
+          <p>
+            These identifiers link the request to the confirmed event plan and the comparable offer
+            used to support it.
+          </p>
+        </details>
       </div>
 
       <div className="panel call-room">
         <div className="section-heading">
           <div>
-            <span className="kicker">Round two</span>
-            <h2>Negotiation callback</h2>
+            <span className="kicker">Final vendor conversation</span>
+            <h2>Improve the selected offer</h2>
           </div>
           {improved && <span className="status-pill status-pill--success">Improved</span>}
         </div>
@@ -193,7 +205,7 @@ export function Negotiation({ brief, finalist, plan, onUpdate }: NegotiationProp
         />
 
         <div className="quote-capture">
-          <span className="kicker">Record the measured final version</span>
+          <span className="kicker">Record the improved offer</span>
           <div className="field-grid field-grid--compact">
             <label>
               <span>New delivery fee</span>
@@ -215,21 +227,21 @@ export function Negotiation({ brief, finalist, plan, onUpdate }: NegotiationProp
             </label>
           </div>
           <div className="negotiation-delta">
-            <span>Measured change</span>
+            <span>Before and after</span>
             <strong>
               {formatMoney(initialTotal, brief.currency)} →{" "}
               {formatMoney(finalTotal, brief.currency)} ({formatMoney(delta, brief.currency)})
             </strong>
           </div>
           <label>
-            <span>What changed and why?</span>
+            <span>What improved?</span>
             <textarea
               value={changedTerms}
               onChange={(event) => setChangedTerms(event.target.value)}
             />
           </label>
           <label>
-            <span>Final read-back transcript evidence</span>
+            <span>Supporting conversation excerpt</span>
             <textarea
               value={transcriptEvidence}
               onChange={(event) => setTranscriptEvidence(event.target.value)}
@@ -268,7 +280,7 @@ export function Negotiation({ brief, finalist, plan, onUpdate }: NegotiationProp
             type="button"
             onClick={confirmFinalOffer}
           >
-            <CheckCircle2 size={18} /> Validate and save final offer version
+            <CheckCircle2 size={18} /> Save the improved offer
           </button>
         </div>
       </div>
