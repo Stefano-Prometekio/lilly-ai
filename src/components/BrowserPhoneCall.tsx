@@ -16,7 +16,7 @@ export interface BrowserCallRequest {
 interface BrowserPhoneCallProps {
   call: BrowserCallRequest | null;
   onDeclined: () => void;
-  onEnded: () => void;
+  onEnded: (conversationId: string | null) => void;
 }
 
 type UiPhase = "ringing" | "connecting" | "live" | "ended";
@@ -37,18 +37,20 @@ function describeCanonicalScope(dynamicVariables: Record<string, string | number
 }
 
 export function BrowserPhoneCall({ call, onDeclined, onEnded }: BrowserPhoneCallProps) {
-  const { startSession, endSession } = useConversationControls();
+  const { startSession, endSession, getId } = useConversationControls();
   const { status } = useConversationStatus();
   const { isMuted, setMuted } = useConversationInput();
   const [phase, setPhase] = useState<UiPhase>("ringing");
   const [seconds, setSeconds] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const endedRef = useRef(false);
+  const conversationIdRef = useRef<string | null>(null);
 
   // Reset when a new call comes in
   useEffect(() => {
     if (call) {
       endedRef.current = false;
+      conversationIdRef.current = null;
       setPhase("ringing");
       setSeconds(0);
       setError(null);
@@ -65,7 +67,7 @@ export function BrowserPhoneCall({ call, onDeclined, onEnded }: BrowserPhoneCall
       endedRef.current = true;
       setPhase("ended");
       // small delay so user sees "Call ended"
-      setTimeout(() => onEnded(), 1200);
+      setTimeout(() => onEnded(conversationIdRef.current), 1200);
     }
   }, [status, call, phase, onEnded]);
 
@@ -103,6 +105,11 @@ export function BrowserPhoneCall({ call, onDeclined, onEnded }: BrowserPhoneCall
       } else {
         await startSession({ ...commonOptions, agentId: LILLY_PUBLIC_AGENT_ID });
       }
+      try {
+        conversationIdRef.current = getId() || null;
+      } catch {
+        conversationIdRef.current = null;
+      }
     } catch (e) {
       setError((e as Error).message);
       setPhase("ringing");
@@ -117,7 +124,7 @@ export function BrowserPhoneCall({ call, onDeclined, onEnded }: BrowserPhoneCall
       /* noop */
     }
     setPhase("ended");
-    setTimeout(() => onEnded(), 600);
+    setTimeout(() => onEnded(conversationIdRef.current), 600);
   }
 
   function handleDecline() {
