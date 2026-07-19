@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as CampaignRouteImport } from './routes/campaign'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiParseBriefDocumentRouteImport } from './routes/api.parse-brief-document'
 import { Route as ApiOutboundCallRouteImport } from './routes/api.outbound-call'
 import { Route as ApiMarketResearchRouteImport } from './routes/api.market-research'
 import { Route as ApiCallStatusRouteImport } from './routes/api.call-status'
@@ -23,6 +24,11 @@ const CampaignRoute = CampaignRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiParseBriefDocumentRoute = ApiParseBriefDocumentRouteImport.update({
+  id: '/api/parse-brief-document',
+  path: '/api/parse-brief-document',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiOutboundCallRoute = ApiOutboundCallRouteImport.update({
@@ -47,6 +53,7 @@ export interface FileRoutesByFullPath {
   '/api/call-status': typeof ApiCallStatusRoute
   '/api/market-research': typeof ApiMarketResearchRoute
   '/api/outbound-call': typeof ApiOutboundCallRoute
+  '/api/parse-brief-document': typeof ApiParseBriefDocumentRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +61,7 @@ export interface FileRoutesByTo {
   '/api/call-status': typeof ApiCallStatusRoute
   '/api/market-research': typeof ApiMarketResearchRoute
   '/api/outbound-call': typeof ApiOutboundCallRoute
+  '/api/parse-brief-document': typeof ApiParseBriefDocumentRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,6 +70,7 @@ export interface FileRoutesById {
   '/api/call-status': typeof ApiCallStatusRoute
   '/api/market-research': typeof ApiMarketResearchRoute
   '/api/outbound-call': typeof ApiOutboundCallRoute
+  '/api/parse-brief-document': typeof ApiParseBriefDocumentRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -71,6 +80,7 @@ export interface FileRouteTypes {
     | '/api/call-status'
     | '/api/market-research'
     | '/api/outbound-call'
+    | '/api/parse-brief-document'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -78,6 +88,7 @@ export interface FileRouteTypes {
     | '/api/call-status'
     | '/api/market-research'
     | '/api/outbound-call'
+    | '/api/parse-brief-document'
   id:
     | '__root__'
     | '/'
@@ -85,6 +96,7 @@ export interface FileRouteTypes {
     | '/api/call-status'
     | '/api/market-research'
     | '/api/outbound-call'
+    | '/api/parse-brief-document'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -93,6 +105,7 @@ export interface RootRouteChildren {
   ApiCallStatusRoute: typeof ApiCallStatusRoute
   ApiMarketResearchRoute: typeof ApiMarketResearchRoute
   ApiOutboundCallRoute: typeof ApiOutboundCallRoute
+  ApiParseBriefDocumentRoute: typeof ApiParseBriefDocumentRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -109,6 +122,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/parse-brief-document': {
+      id: '/api/parse-brief-document'
+      path: '/api/parse-brief-document'
+      fullPath: '/api/parse-brief-document'
+      preLoaderRoute: typeof ApiParseBriefDocumentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/outbound-call': {
@@ -141,6 +161,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiCallStatusRoute: ApiCallStatusRoute,
   ApiMarketResearchRoute: ApiMarketResearchRoute,
   ApiOutboundCallRoute: ApiOutboundCallRoute,
+  ApiParseBriefDocumentRoute: ApiParseBriefDocumentRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
