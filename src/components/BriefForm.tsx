@@ -139,7 +139,7 @@ export function BriefForm({ brief, onChange, onConfirm, onLoadDemo }: BriefFormP
 
         <VoiceSession
           agentId={import.meta.env.VITE_ELEVENLABS_INTAKE_AGENT_ID}
-          label="Lilly, your procurement partner"
+          label="Lilly, your event planning assistant"
           dynamicVariables={{
             brief_id: brief.id,
             brief_version: brief.version,

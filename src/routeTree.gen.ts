@@ -9,11 +9,17 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as CampaignRouteImport } from './routes/campaign'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiOutboundCallRouteImport } from './routes/api.outbound-call'
 import { Route as ApiMarketResearchRouteImport } from './routes/api.market-research'
 import { Route as ApiCallStatusRouteImport } from './routes/api.call-status'
 
+const CampaignRoute = CampaignRouteImport.update({
+  id: '/campaign',
+  path: '/campaign',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -37,12 +43,14 @@ const ApiCallStatusRoute = ApiCallStatusRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/campaign': typeof CampaignRoute
   '/api/call-status': typeof ApiCallStatusRoute
   '/api/market-research': typeof ApiMarketResearchRoute
   '/api/outbound-call': typeof ApiOutboundCallRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/campaign': typeof CampaignRoute
   '/api/call-status': typeof ApiCallStatusRoute
   '/api/market-research': typeof ApiMarketResearchRoute
   '/api/outbound-call': typeof ApiOutboundCallRoute
@@ -50,6 +58,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/campaign': typeof CampaignRoute
   '/api/call-status': typeof ApiCallStatusRoute
   '/api/market-research': typeof ApiMarketResearchRoute
   '/api/outbound-call': typeof ApiOutboundCallRoute
@@ -58,14 +67,21 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/campaign'
     | '/api/call-status'
     | '/api/market-research'
     | '/api/outbound-call'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/call-status' | '/api/market-research' | '/api/outbound-call'
+  to:
+    | '/'
+    | '/campaign'
+    | '/api/call-status'
+    | '/api/market-research'
+    | '/api/outbound-call'
   id:
     | '__root__'
     | '/'
+    | '/campaign'
     | '/api/call-status'
     | '/api/market-research'
     | '/api/outbound-call'
@@ -73,6 +89,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CampaignRoute: typeof CampaignRoute
   ApiCallStatusRoute: typeof ApiCallStatusRoute
   ApiMarketResearchRoute: typeof ApiMarketResearchRoute
   ApiOutboundCallRoute: typeof ApiOutboundCallRoute
@@ -80,6 +97,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/campaign': {
+      id: '/campaign'
+      path: '/campaign'
+      fullPath: '/campaign'
+      preLoaderRoute: typeof CampaignRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -113,6 +137,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CampaignRoute: CampaignRoute,
   ApiCallStatusRoute: ApiCallStatusRoute,
   ApiMarketResearchRoute: ApiMarketResearchRoute,
   ApiOutboundCallRoute: ApiOutboundCallRoute,

@@ -78,16 +78,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lilly — Your AI Procurement Partner" },
+      { title: "Lilly — Your AI Event Planning Assistant" },
       {
         name: "description",
-        content: "Research, compare, and negotiate catering proposals with Lilly.",
+        content:
+          "Source, compare, and negotiate catering vendors with Lilly, your AI event planning assistant.",
       },
       { name: "author", content: "Lilly AI" },
-      { property: "og:title", content: "Lilly — Your AI Procurement Partner" },
+      { property: "og:title", content: "Lilly — Your AI Event Planning Assistant" },
       {
         property: "og:description",
-        content: "Research, compare, and negotiate catering proposals with Lilly.",
+        content:
+          "Source, compare, and negotiate catering vendors with Lilly, your AI event planning assistant.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
