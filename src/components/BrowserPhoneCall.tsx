@@ -12,6 +12,7 @@ export interface BrowserCallRequest {
   vendorName: string;
   vendorAddress?: string;
   dynamicVariables: Record<string, string | number | boolean>;
+  firstMessage?: string;
 }
 
 interface BrowserPhoneCallProps {
