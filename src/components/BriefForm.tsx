@@ -29,7 +29,7 @@ export function BriefForm({ brief, onChange, onConfirm, onLoadDemo }: BriefFormP
   const fieldsReady = missingFields.length === 0;
   const voiceReady = brief.intakeEvidence.voiceInterviewCompleted;
   const documentReady = brief.intakeEvidence.documents.length > 0;
-  const readyToConfirm = fieldsReady && (voiceReady || documentReady);
+  const readyToConfirm = fieldsReady;
 
   useConversationClientTool("record_brief_fields", ({ fields }: RecordBriefFieldsParams) => {
     if (!fields || brief.status === "confirmed") {
@@ -225,10 +225,10 @@ export function BriefForm({ brief, onChange, onConfirm, onLoadDemo }: BriefFormP
             <CheckCircle2 size={15} /> Lilly cannot place a booking
           </span>
           <span className={voiceReady ? "success-text" : ""}>
-            <CheckCircle2 size={15} /> Voice interview {voiceReady ? "recorded" : "required"}
+            <CheckCircle2 size={15} /> Voice interview {voiceReady ? "recorded" : "optional"}
           </span>
           <span className={documentReady ? "success-text" : ""}>
-            <CheckCircle2 size={15} /> Document {documentReady ? "imported" : "required"}
+            <CheckCircle2 size={15} /> Document {documentReady ? "imported" : "optional"}
           </span>
         </div>
       </div>
@@ -428,7 +428,6 @@ export function BriefForm({ brief, onChange, onConfirm, onLoadDemo }: BriefFormP
             Still needed:{" "}
             {[
               ...missingFields.map((field) => field.replaceAll(/([A-Z])/g, " $1").toLowerCase()),
-              ...(voiceReady || documentReady ? [] : ["a voice interview or imported document"]),
             ].join(", ")}
             .
           </p>
