@@ -48,6 +48,30 @@ const outcomeLabels: Record<CallOutcomeKind, string> = {
   documented_decline: "Documented decline",
 };
 
+const transcriptRetryDelaysMs = [1_500, 2_000, 3_000, 4_000, 5_000, 5_000, 5_000, 5_000];
+
+class QuoteExtractionError extends Error {
+  constructor(
+    message: string,
+    readonly retryable: boolean,
+  ) {
+    super(message);
+    this.name = "QuoteExtractionError";
+  }
+}
+
+function wait(milliseconds: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+}
+
+function describeExtractionError(payload: unknown, status: number) {
+  if (!payload || typeof payload !== "object") return `Quote extraction failed (${status}).`;
+  const record = payload as Record<string, unknown>;
+  const detail = typeof record.detail === "string" ? record.detail : undefined;
+  const message = typeof record.error === "string" ? record.error : undefined;
+  return [message, detail].filter(Boolean).join(": ") || `Quote extraction failed (${status}).`;
+}
+
 interface VendorCallsProps {
   brief: CateringBrief;
   quotes: VendorQuote[];
@@ -137,68 +161,69 @@ export function VendorCalls({
   async function extractQuoteFromTranscript(
     quote: VendorQuote,
     conversationId: string,
-  ): Promise<VendorQuote | null> {
-    try {
-      const res = await fetch("/api/extract-quote", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ conversationId, currency: brief.currency }),
-      });
-      if (!res.ok) throw new Error(await res.text());
-      const payload = (await res.json()) as {
-        extracted: {
-          outcomeKind: "itemized_quote" | "callback_commitment" | "documented_decline";
-          summary: string;
-          headlineTotal: number;
-          components: VendorQuote["components"];
-          depositPercent: number;
-          cancellationDays: number;
-          validUntilDays: number;
-          callbackAt: string | null;
-          notes: string;
-        };
-      };
-      const e = payload.extracted;
-      const validUntil = e.validUntilDays > 0
-        ? new Date(Date.now() + e.validUntilDays * 86_400_000).toISOString().slice(0, 10)
-        : new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
-      const callbackAt =
-        e.callbackAt ||
-        (e.outcomeKind === "callback_commitment"
-          ? new Date(Date.now() + 2 * 86_400_000).toISOString()
-          : undefined);
-      const patched: VendorQuote = {
-        ...quote,
-        draftOutcomeKind: e.outcomeKind,
-        headlineTotal: e.headlineTotal || 0,
-        components: e.components,
-        depositPercent: Math.max(0, Math.min(100, e.depositPercent || 0)),
-        cancellationDays: Math.max(0, e.cancellationDays || 0),
-        validUntil,
-        callbackAt,
-        notes: e.notes || e.summary || `Call with ${quote.vendorName}.`,
-        missingComponents: [],
-        transcriptTimestampSeconds: 0,
-        transcriptUrl: `https://elevenlabs.io/app/conversational-ai/history/${conversationId}`,
-      };
+  ): Promise<VendorQuote> {
+    let lastError: Error | undefined;
+
+    for (let attempt = 0; attempt <= transcriptRetryDelaysMs.length; attempt += 1) {
       try {
+        const res = await fetch("/api/extract-quote", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ conversationId, currency: brief.currency }),
+        });
+        if (!res.ok) {
+          const payload = (await res.json().catch(() => undefined)) as
+            | { retryable?: boolean }
+            | undefined;
+          throw new QuoteExtractionError(
+            describeExtractionError(payload, res.status),
+            payload?.retryable === true || res.status === 425,
+          );
+        }
+        const payload = (await res.json()) as {
+          extracted: {
+            outcomeKind: "itemized_quote" | "callback_commitment" | "documented_decline";
+            summary: string;
+            headlineTotal: number;
+            components: VendorQuote["components"];
+            depositPercent: number;
+            cancellationDays: number;
+            validUntilDays: number;
+            callbackAt: string | null;
+            notes: string;
+          };
+        };
+        const e = payload.extracted;
+        const validUntil =
+          e.validUntilDays > 0
+            ? new Date(Date.now() + e.validUntilDays * 86_400_000).toISOString().slice(0, 10)
+            : new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
+        const patched: VendorQuote = {
+          ...quote,
+          draftOutcomeKind: e.outcomeKind,
+          headlineTotal: e.headlineTotal || 0,
+          components: e.components,
+          depositPercent: Math.max(0, Math.min(100, e.depositPercent || 0)),
+          cancellationDays: Math.max(0, e.cancellationDays || 0),
+          validUntil,
+          callbackAt: e.callbackAt ?? undefined,
+          notes: e.notes || e.summary,
+          missingComponents: [],
+          transcriptTimestampSeconds: 0,
+          transcriptUrl: `https://elevenlabs.io/app/conversational-ai/history/${conversationId}`,
+        };
         return finalizeVendorQuote(patched, brief);
-      } catch (err) {
-        console.error("[extract-quote] finalize failed", err, patched);
-        // Fall back to documented_decline so we still record something.
-        return finalizeVendorQuote(
-          {
-            ...patched,
-            draftOutcomeKind: "documented_decline",
-            notes: `${patched.notes} (Auto-extracted but incomplete: ${(err as Error).message})`,
-          },
-          brief,
-        );
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error("Quote extraction failed.");
+        const canRetry =
+          !(lastError instanceof QuoteExtractionError) || lastError.retryable === true;
+        if (!canRetry || attempt === transcriptRetryDelaysMs.length) break;
+        await wait(transcriptRetryDelaysMs[attempt]);
       }
-    } catch (error) {
-      console.error("[extract-quote] request failed", error);
-      return null;
     }
+
+    console.error("[extract-quote] failed", { conversationId, error: lastError });
+    throw lastError ?? new Error("Quote extraction failed.");
   }
 
   async function importByConversationId(quote: VendorQuote, conversationId: string) {
@@ -207,12 +232,17 @@ export function VendorCalls({
     setImportDialogQuoteId(undefined);
     setConversationIdInput("");
     setCaptureError(undefined);
-    const finalized = await extractQuoteFromTranscript(quote, conversationId.trim());
-    setImportingId(null);
-    if (finalized) {
+    try {
+      const finalized = await extractQuoteFromTranscript(quote, conversationId.trim());
       onUpdate(finalized);
-    } else {
-      setCaptureError(`Could not extract a quote from ${conversationId.trim()}.`);
+    } catch (error) {
+      setCaptureError(
+        error instanceof Error
+          ? error.message
+          : `Could not extract a quote from ${conversationId.trim()}.`,
+      );
+    } finally {
+      setImportingId(null);
     }
   }
 
@@ -228,6 +258,7 @@ export function VendorCalls({
     abortRef.current = { aborted: false };
     setSeq({ running: true, currentIndex: 0, log: [], error: undefined });
 
+    let completedCalls = 0;
     for (let index = 0; index < quotes.length; index += 1) {
       if (abortRef.current.aborted) break;
       const quote = quotes[index];
@@ -240,34 +271,53 @@ export function VendorCalls({
       const { reason, conversationId } = await waitForBrowserCall(quote);
       if (abortRef.current.aborted) break;
 
-      let finalized: VendorQuote | null = null;
+      let finalized: VendorQuote;
       let logLine = "";
-      if (reason === "ended" && conversationId) {
+      if (reason === "ended") {
+        if (!conversationId) {
+          const message = `${quote.vendorName}: ElevenLabs ended the call without providing a conversation ID. The call was not marked as a decline.`;
+          setCaptureError(message);
+          setSeq((current) => ({ ...current, error: message, log: [...current.log, message] }));
+          onUpdate({ ...quote, status: "not-started", outcome: undefined });
+          break;
+        }
         setSeq((current) => ({
           ...current,
           log: [...current.log, `Extracting quote from ${quote.vendorName} transcript...`],
         }));
-        finalized = await extractQuoteFromTranscript(quote, conversationId);
-        if (finalized) {
+        try {
+          finalized = await extractQuoteFromTranscript(quote, conversationId);
           logLine = `${quote.vendorName}: quote captured from transcript (${finalized.outcome?.kind ?? "unknown"}).`;
+        } catch (error) {
+          const detail = error instanceof Error ? error.message : "Quote extraction failed.";
+          const message = `${quote.vendorName}: the call was saved, but its transcript could not be processed. ${detail}`;
+          setCaptureError(message);
+          setSeq((current) => ({ ...current, error: message, log: [...current.log, message] }));
+          onUpdate({
+            ...quote,
+            status: "not-started",
+            outcome: undefined,
+            transcriptUrl: `https://elevenlabs.io/app/conversational-ai/history/${conversationId}`,
+          });
+          break;
         }
-      }
-      if (!finalized) {
+      } else {
         finalized = finalizeUnquotedCall(quote, reason);
-        logLine =
-          reason === "declined"
-            ? `${quote.vendorName}: documented decline.`
-            : `${quote.vendorName}: call ended without a usable quote; documented for follow-up.`;
+        logLine = `${quote.vendorName}: documented decline.`;
       }
       onUpdate(finalized);
+      completedCalls += 1;
       setSeq((current) => ({ ...current, log: [...current.log, logLine] }));
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await wait(500);
     }
     setSeq((current) => ({
       ...current,
       running: false,
       currentIndex: -1,
-      log: [...current.log, "All calls now have structured outcomes."],
+      log:
+        completedCalls === quotes.length
+          ? [...current.log, "All calls now have structured outcomes."]
+          : current.log,
     }));
   }
 
