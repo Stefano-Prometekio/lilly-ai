@@ -55,9 +55,8 @@ async function extractTextFromPptx(buffer: ArrayBuffer) {
   return parts.join("\n\n");
 }
 
-async function extractFieldsWithOpenAI(args: {
+async function extractFieldsWithGateway(args: {
   apiKey: string;
-  model: string;
   fileName: string;
   text?: string;
   pdfBase64?: string;
@@ -66,58 +65,56 @@ async function extractFieldsWithOpenAI(args: {
   const systemPrompt = `You extract catering event brief fields from a supplied document.
 Return ONLY a compact JSON object matching this shape (omit fields you cannot confidently infer):
 ${FIELD_SCHEMA_HINT}
-Numeric fields must be numbers, not strings. Do not invent values.`;
+Numeric fields must be numbers, not strings. Do not invent values. Respond with JSON only, no prose.`;
 
   const userContent: Array<Record<string, unknown>> = [];
   if (args.pdfBase64) {
     userContent.push({
-      type: "input_file",
-      filename: args.fileName,
-      file_data: `data:${args.pdfMime ?? "application/pdf"};base64,${args.pdfBase64}`,
+      type: "file",
+      file: {
+        filename: args.fileName,
+        file_data: `data:${args.pdfMime ?? "application/pdf"};base64,${args.pdfBase64}`,
+      },
     });
     userContent.push({
-      type: "input_text",
+      type: "text",
       text: "Extract the catering brief fields from this document.",
     });
   } else {
     userContent.push({
-      type: "input_text",
+      type: "text",
       text: `Extract the catering brief fields from the document "${args.fileName}":\n\n${args.text ?? ""}`,
     });
   }
 
-  const response = await fetch("https://api.openai.com/v1/responses", {
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${args.apiKey}`,
+      "Lovable-API-Key": args.apiKey,
     },
     body: JSON.stringify({
-      model: args.model,
-      input: [
-        { role: "system", content: [{ type: "input_text", text: systemPrompt }] },
+      model: "google/gemini-3-flash-preview",
+      messages: [
+        { role: "system", content: systemPrompt },
         { role: "user", content: userContent },
       ],
-      text: { format: { type: "json_object" } },
+      response_format: { type: "json_object" },
     }),
   });
 
   if (!response.ok) {
     const detail = await response.text();
-    throw new Error(`OpenAI extraction failed: ${response.status} ${detail.slice(0, 300)}`);
+    throw new Error(`AI Gateway extraction failed: ${response.status} ${detail.slice(0, 300)}`);
   }
-  const payload = (await response.json()) as Record<string, unknown>;
-  let outputText = typeof payload.output_text === "string" ? payload.output_text : "";
-  if (!outputText && Array.isArray(payload.output)) {
-    for (const item of payload.output as Array<Record<string, unknown>>) {
-      const content = Array.isArray(item.content) ? item.content : [];
-      for (const part of content as Array<Record<string, unknown>>) {
-        if (typeof part.text === "string") outputText += part.text;
-      }
-    }
-  }
-  if (!outputText) throw new Error("OpenAI returned no fields.");
-  return JSON.parse(outputText) as Record<string, unknown>;
+  const payload = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+  const outputText = payload.choices?.[0]?.message?.content?.trim() ?? "";
+  if (!outputText) throw new Error("AI Gateway returned no fields.");
+  // Strip accidental code fences.
+  const cleaned = outputText.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "");
+  return JSON.parse(cleaned) as Record<string, unknown>;
 }
 
 export const Route = createFileRoute("/api/parse-brief-document")({
@@ -125,11 +122,10 @@ export const Route = createFileRoute("/api/parse-brief-document")({
     handlers: {
       POST: async ({ request }) => {
         try {
-          const apiKey = process.env.OPENAI_API_KEY;
-          const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
+          const apiKey = process.env.LOVABLE_API_KEY;
           if (!apiKey) {
             return new Response(
-              JSON.stringify({ error: "OPENAI_API_KEY is not configured on the server." }),
+              JSON.stringify({ error: "LOVABLE_API_KEY is not configured on the server." }),
               { status: 500, headers: { "Content-Type": "application/json" } },
             );
           }
@@ -147,26 +143,23 @@ export const Route = createFileRoute("/api/parse-brief-document")({
 
           if (name.endsWith(".pdf") || file.type === "application/pdf") {
             const base64 = Buffer.from(buffer).toString("base64");
-            fields = await extractFieldsWithOpenAI({
+            fields = await extractFieldsWithGateway({
               apiKey,
-              model,
               fileName: file.name,
               pdfBase64: base64,
               pdfMime: file.type || "application/pdf",
             });
           } else if (name.endsWith(".docx")) {
             const text = await extractTextFromDocx(buffer);
-            fields = await extractFieldsWithOpenAI({
+            fields = await extractFieldsWithGateway({
               apiKey,
-              model,
               fileName: file.name,
               text,
             });
           } else if (name.endsWith(".pptx")) {
             const text = await extractTextFromPptx(buffer);
-            fields = await extractFieldsWithOpenAI({
+            fields = await extractFieldsWithGateway({
               apiKey,
-              model,
               fileName: file.name,
               text,
             });
