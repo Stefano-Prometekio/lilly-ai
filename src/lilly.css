@@ -2818,81 +2818,227 @@ h1 {
   }
 }
 
+/* --- Comparison cards (all viewports) --- */
 @media (max-width: 800px) {
   .comparison-table {
     display: none;
   }
+}
 
-  .comparison-cards {
-    display: grid;
-    gap: 13px;
-  }
+.comparison-card {
+  display: grid;
+  gap: 18px;
+  padding: 22px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--paper);
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
 
-  .comparison-card {
-    display: grid;
-    gap: 16px;
-    padding: 18px;
-    border: 1px solid var(--line);
-    border-radius: 18px;
-    background: #fbfcf8;
-  }
+.comparison-card:hover {
+  border-color: #b8c9b4;
+}
 
-  .comparison-card--leader {
-    border-color: #c4d8c2;
-    background: linear-gradient(145deg, #fbfff8, #f2f7ed);
-  }
+.comparison-card--leader {
+  border: 2px solid var(--ink);
+  background: var(--paper);
+  box-shadow: 8px 8px 0 rgba(23, 62, 52, 0.06);
+}
 
-  .comparison-card__header {
-    display: grid;
-    grid-template-columns: 34px 1fr auto;
-    align-items: center;
-    gap: 10px;
-  }
+.comparison-card--selected {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px rgba(40, 106, 84, 0.14);
+}
 
-  .comparison-card__rank {
-    width: 34px;
-    height: 34px;
-    display: grid;
-    place-items: center;
-    border-radius: 10px;
-    color: var(--green);
-    background: var(--mint);
-    font-size: 0.75rem;
-    font-weight: 800;
-  }
+.comparison-card__header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 10px;
+}
 
-  .comparison-card__header > div,
-  .comparison-card__price {
-    display: grid;
-    gap: 3px;
-  }
+.comparison-card__rank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 9px;
+  background: var(--cream);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
 
-  .comparison-card__header small,
-  .comparison-card__price span,
-  .comparison-card__price small,
-  .comparison-card__metrics small {
-    color: var(--muted);
-    font-size: 0.69rem;
-  }
+.comparison-card--leader .comparison-card__rank {
+  color: var(--gold);
+  background: #fff7e4;
+  border-color: #f0dfa5;
+}
 
-  .comparison-card__price strong {
-    font-size: 1.55rem;
-  }
+.comparison-card__header > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
 
+.comparison-card__header > div strong {
+  font-size: 1.15rem;
+  line-height: 1.2;
+}
+
+.comparison-card__header > div small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.comparison-card .status-pill {
+  align-self: center;
+  padding: 4px 9px;
+  border-radius: 6px;
+  background: var(--mint-strong);
+  color: var(--green-dark);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.comparison-card__price {
+  display: grid;
+  gap: 6px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.comparison-card__price > span {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.comparison-card__price > strong {
+  font-size: 1.75rem;
+  font-family: "Manrope", sans-serif;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.comparison-card__price > small {
+  color: var(--danger);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.comparison-card__metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.comparison-card__metrics > span {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--cream);
+  border: 1px solid var(--line);
+}
+
+.comparison-card__metrics small {
+  color: var(--muted);
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.comparison-card__metrics strong {
+  font-size: 0.9rem;
+  font-family: "Manrope", sans-serif;
+}
+
+.comparison-card__select {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--cream);
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.comparison-card__select:hover {
+  background: #eef1e8;
+}
+
+.comparison-card--selected .comparison-card__select {
+  background: var(--mint);
+  border-color: var(--mint-strong);
+}
+
+.comparison-card__select input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--green);
+  cursor: pointer;
+}
+
+/* Action bar */
+.comparison-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-top: 22px;
+  padding: 18px 22px;
+  border-top: 1px solid var(--line);
+}
+
+.comparison-actions > span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+/* Ineligible list refinement */
+.ineligible-list {
+  margin-top: 22px;
+  border: 1px dashed var(--line);
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.ineligible-list .kicker {
+  color: #9ba69f;
+}
+
+@media (max-width: 620px) {
   .comparison-card__metrics {
-    display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 8px;
   }
-
-  .comparison-card__metrics > span {
-    display: grid;
-    gap: 3px;
-    padding: 10px;
-    border-radius: 11px;
-    background: white;
+  .comparison-card__price > strong {
+    font-size: 1.5rem;
   }
 }
+
 
 @media (max-width: 620px) {
   .app-shell {
