@@ -120,8 +120,7 @@ function App() {
     if (invalidatesCampaign) {
       setMarketReference(emptyMarketReference);
       setQuotes(initialQuotes);
-      setFinalistId(undefined);
-      setNegotiationPlan(undefined);
+      setFinalistIds([]);
       setActiveQuoteId(undefined);
       setDemoMode(false);
     }
