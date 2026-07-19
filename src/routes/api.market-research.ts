@@ -24,6 +24,7 @@ interface GooglePlace {
   googleMapsUri?: string;
   rating?: number;
   userRatingCount?: number;
+  location?: { latitude?: number; longitude?: number };
 }
 
 interface ResearchSource {
@@ -130,7 +131,7 @@ function validatedReference(
     if (rb !== ra) return rb - ra;
     return (b.userRatingCount ?? 0) - (a.userRatingCount ?? 0);
   });
-  const vendors = rankedPlaces.slice(0, 3).map((p) => ({
+  const vendors = rankedPlaces.map((p) => ({
     id: p.id,
     name: p.displayName?.text ?? "Unknown caterer",
     address: p.formattedAddress,
@@ -138,10 +139,18 @@ function validatedReference(
     mapsUrl: p.googleMapsUri,
     rating: p.rating,
     reviewCount: p.userRatingCount,
+    latitude: p.location?.latitude,
+    longitude: p.location?.longitude,
   }));
 
   const evidenceConfidenceCap =
-    priceSourceCount >= 3 ? 0.9 : priceSourceCount === 2 ? 0.7 : priceSourceCount === 1 ? 0.45 : 0.25;
+    priceSourceCount >= 3
+      ? 0.9
+      : priceSourceCount === 2
+        ? 0.7
+        : priceSourceCount === 1
+          ? 0.45
+          : 0.25;
   return {
     ...raw,
     confidence: Math.min(Math.max(raw.confidence, 0), evidenceConfidenceCap),
@@ -184,11 +193,11 @@ async function researchMarket(
       "Content-Type": "application/json",
       "X-Goog-Api-Key": googleKey,
       "X-Goog-FieldMask":
-        "places.id,places.displayName,places.formattedAddress,places.websiteUri,places.googleMapsUri,places.rating,places.userRatingCount",
+        "places.id,places.displayName,places.formattedAddress,places.websiteUri,places.googleMapsUri,places.rating,places.userRatingCount,places.location",
     },
     body: JSON.stringify({
       textQuery: `${brief.serviceStyle} event catering services within ${brief.radiusKm} km of ${brief.city}`,
-      pageSize: 12,
+      pageSize: 20,
       languageCode: "en",
       includePureServiceAreaBusinesses: true,
     }),

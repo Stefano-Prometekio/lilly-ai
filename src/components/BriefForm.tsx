@@ -7,6 +7,7 @@ import {
   type RecordBriefFieldsParams,
 } from "../lib/brief-intake";
 import { VoiceSession } from "./VoiceSession";
+import { LocationMap } from "./LocationMap";
 
 interface BriefFormProps {
   brief: CateringBrief;
@@ -234,6 +235,20 @@ export function BriefForm({ brief, onChange, onConfirm }: BriefFormProps) {
               onChange={(e) => update("absoluteMaximum", Number(e.target.value))}
             />
           </label>
+        </div>
+
+        <div className="brief-map-block">
+          <div className="map-section-heading">
+            <div>
+              <span className="kicker">Live search area</span>
+              <h3>Venue and supplier radius</h3>
+            </div>
+            <span>Updates with the location and radius above</span>
+          </div>
+          <LocationMap
+            location={brief.venueAddress.trim() || brief.city}
+            radiusKm={brief.radiusKm}
+          />
         </div>
 
         <div className="authority-card">
