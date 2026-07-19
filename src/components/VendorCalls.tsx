@@ -87,6 +87,8 @@ export function VendorCalls({
     null,
   );
   const [importingId, setImportingId] = useState<string | null>(null);
+  const [importDialogQuoteId, setImportDialogQuoteId] = useState<string>();
+  const [conversationIdInput, setConversationIdInput] = useState("");
 
   useEffect(
     () => () => {
@@ -157,9 +159,10 @@ export function VendorCalls({
         };
       };
       const e = payload.extracted;
-      const validUntil = e.validUntilDays > 0
-        ? new Date(Date.now() + e.validUntilDays * 86_400_000).toISOString().slice(0, 10)
-        : new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
+      const validUntil =
+        e.validUntilDays > 0
+          ? new Date(Date.now() + e.validUntilDays * 86_400_000).toISOString().slice(0, 10)
+          : new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
       const patched: VendorQuote = {
         ...quote,
         draftOutcomeKind: e.outcomeKind,
@@ -181,13 +184,11 @@ export function VendorCalls({
     }
   }
 
-  async function importByConversationId(quote: VendorQuote) {
-    const conversationId = window.prompt(
-      `Paste the ElevenLabs conversation_id for ${quote.vendorName}\n(from the ElevenLabs dashboard, starts with "conv_")`,
-      "",
-    );
-    if (!conversationId?.trim()) return;
+  async function importByConversationId(quote: VendorQuote, conversationId: string) {
+    if (!conversationId.trim()) return;
     setImportingId(quote.id);
+    setImportDialogQuoteId(undefined);
+    setConversationIdInput("");
     setCaptureError(undefined);
     const finalized = await extractQuoteFromTranscript(quote, conversationId.trim());
     setImportingId(null);
@@ -297,17 +298,16 @@ export function VendorCalls({
       <div className="panel">
         <div className="section-heading">
           <div>
-            <span className="kicker">Round one</span>
-            <h2>Three distinct vendor conversations</h2>
+            <span className="kicker">Vendor outreach</span>
+            <h2>Gather three comparable offers</h2>
           </div>
           <span className="status-pill">
-            {structuredCount}/{quotes.length} structured
+            {structuredCount} of {quotes.length} ready
           </span>
         </div>
         <p className="panel-intro">
-          Every call receives brief v{brief.version}, fingerprint {brief.contentHash?.slice(0, 12)}
-          …, and the exact same canonical JSON. A call cannot count until it has an itemized quote,
-          callback commitment, or documented decline.
+          Lilly shares the same confirmed event brief with every vendor, so the offers stay fair and
+          comparable. Each conversation ends with a quote, a callback, or a clear decline.
         </p>
 
         <div className="voice-session sequential-call-card">
@@ -315,7 +315,7 @@ export function VendorCalls({
             <PhoneOutgoing size={26} />
           </div>
           <div className="voice-session__copy">
-            <strong>Sequential browser role-play calls</strong>
+            <strong>Contact vendors one at a time</strong>
             <span>
               {seq.running
                 ? `Calling ${seq.currentIndex + 1} of ${quotes.length}: ${quotes[seq.currentIndex]?.vendorName ?? ""}`
@@ -329,7 +329,7 @@ export function VendorCalls({
               </button>
             ) : (
               <button className="button button--primary" type="button" onClick={runAllCalls}>
-                <PhoneOutgoing size={17} /> Proceed with vendor calls
+                <PhoneOutgoing size={17} /> Start vendor outreach
               </button>
             )}
           </div>
@@ -349,6 +349,11 @@ export function VendorCalls({
             const copy = personaCopy[quote.persona];
             const vendor = vendors?.[index];
             const isCurrent = seq.running && seq.currentIndex === index;
+            const statusLabel = quote.outcome
+              ? outcomeLabels[quote.outcome.kind]
+              : isCurrent
+                ? "Calling now"
+                : "Ready to contact";
             return (
               <article
                 className={`vendor-card ${activeQuoteId === quote.id ? "vendor-card--active" : ""} ${isCurrent ? "vendor-card--calling" : ""}`}
@@ -356,7 +361,10 @@ export function VendorCalls({
               >
                 <div className="vendor-card__top">
                   <span className="vendor-index">0{index + 1}</span>
-                  {quote.outcome && <CheckCircle2 size={19} className="success-icon" />}
+                  <span className={`vendor-state ${quote.outcome ? "vendor-state--ready" : ""}`}>
+                    {quote.outcome && <CheckCircle2 size={15} />}
+                    {statusLabel}
+                  </span>
                 </div>
                 <input
                   className="vendor-name-input"
@@ -371,30 +379,28 @@ export function VendorCalls({
                   </span>
                 )}
                 <span className="persona-label">
-                  <UserRound size={14} /> Negotiation style: {copy.label}
+                  <UserRound size={14} /> Conversation style: {copy.label}
                 </span>
                 <p>{copy.objective}</p>
-                {quote.outcome && (
-                  <span className="status-pill status-pill--success">
-                    {outcomeLabels[quote.outcome.kind]}
-                  </span>
-                )}
                 <button
                   className="button button--secondary button--wide"
                   type="button"
                   onClick={() => onActivate(quote.id)}
                 >
-                  <Headphones size={17} /> Open call room
+                  <Headphones size={17} /> Review vendor conversation
                 </button>
                 <button
                   className="text-button"
                   type="button"
                   disabled={importingId === quote.id}
-                  onClick={() => importByConversationId(quote)}
+                  onClick={() => {
+                    setImportDialogQuoteId(quote.id);
+                    setConversationIdInput("");
+                  }}
                 >
                   {importingId === quote.id
-                    ? "Extracting transcript..."
-                    : "Import from ElevenLabs conversation ID"}
+                    ? "Reading conversation..."
+                    : "Use an existing conversation"}
                 </button>
               </article>
             );
@@ -403,183 +409,198 @@ export function VendorCalls({
       </div>
 
       {activeQuote && (
-        <div className="panel call-room">
-          <div className="section-heading">
-            <div>
-              <span className="kicker">Live role-play room</span>
-              <h2>{activeQuote.vendorName}</h2>
+        <div className="call-room-shell" role="presentation">
+          <div
+            className="panel call-room"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="active-vendor-call-title"
+          >
+            <div className="section-heading">
+              <div>
+                <span className="kicker">Vendor conversation</span>
+                <h2 id="active-vendor-call-title">{activeQuote.vendorName}</h2>
+              </div>
+              <button className="text-button" type="button" onClick={() => onActivate(undefined)}>
+                Close
+              </button>
             </div>
-            <button className="text-button" type="button" onClick={() => onActivate(undefined)}>
-              Close
-            </button>
-          </div>
-          <div className="persona-brief">
-            <ClipboardPen size={18} />
-            <div>
-              <strong>Private role-play instruction</strong>
-              <span>{personaCopy[activeQuote.persona].objective}</span>
+            <div className="persona-brief">
+              <ClipboardPen size={18} />
+              <div>
+                <strong>Conversation guidance</strong>
+                <span>{personaCopy[activeQuote.persona].objective}</span>
+              </div>
             </div>
-          </div>
-          <div className="canonical-call-proof">
-            <strong>Exact frozen input</strong>
-            <span>
-              Brief v{brief.version} · SHA-256 {brief.contentHash?.slice(0, 16)}…
-            </span>
-          </div>
-          <VoiceSession
-            agentId={import.meta.env.VITE_ELEVENLABS_PROCUREMENT_AGENT_ID}
-            label={`Lilly calling ${activeQuote.vendorName}`}
-            dynamicVariables={buildDynamicVariables(brief, activeQuote)}
-            onStarted={() => updateActiveQuote({ status: "calling" })}
-          />
+            <details className="technical-proof technical-proof--compact">
+              <summary>
+                <span>
+                  <strong>Same confirmed brief for every vendor</strong>
+                  <small>
+                    Plan v{brief.version} · verification {brief.contentHash?.slice(0, 12)}…
+                  </small>
+                </span>
+              </summary>
+              <p>
+                Lilly reuses this exact confirmed version for every conversation so that vendor
+                offers can be compared fairly.
+              </p>
+            </details>
+            <VoiceSession
+              agentId={import.meta.env.VITE_ELEVENLABS_PROCUREMENT_AGENT_ID}
+              label={`Lilly calling ${activeQuote.vendorName}`}
+              dynamicVariables={buildDynamicVariables(brief, activeQuote)}
+              onStarted={() => updateActiveQuote({ status: "calling" })}
+            />
 
-          <div className="quote-capture">
-            <span className="kicker">Required structured call outcome</span>
-            <label>
-              <span>Outcome type</span>
-              <select
-                value={activeQuote.draftOutcomeKind}
-                onChange={(event) =>
-                  updateActiveQuote({ draftOutcomeKind: event.target.value as CallOutcomeKind })
-                }
-              >
-                {Object.entries(outcomeLabels).map(([value, label]) => (
-                  <option value={value} key={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="quote-capture">
+              <span className="kicker">Conversation outcome</span>
+              <label>
+                <span>Outcome type</span>
+                <select
+                  value={activeQuote.draftOutcomeKind}
+                  onChange={(event) =>
+                    updateActiveQuote({ draftOutcomeKind: event.target.value as CallOutcomeKind })
+                  }
+                >
+                  {Object.entries(outcomeLabels).map(([value, label]) => (
+                    <option value={value} key={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-            {activeQuote.draftOutcomeKind === "itemized_quote" && (
-              <>
-                <div className="field-grid field-grid--compact">
-                  <label>
-                    <span>Headline total</span>
-                    <input
-                      type="number"
-                      min="0"
-                      value={activeQuote.headlineTotal}
-                      onChange={(event) =>
-                        updateActiveQuote({ headlineTotal: Number(event.target.value) })
-                      }
-                    />
-                  </label>
-                  {quoteComponentKeys.map((key) => (
-                    <label key={key}>
-                      <span>{key.replaceAll(/([A-Z])/g, " $1")}</span>
+              {activeQuote.draftOutcomeKind === "itemized_quote" && (
+                <>
+                  <div className="field-grid field-grid--compact">
+                    <label>
+                      <span>Headline total</span>
                       <input
                         type="number"
                         min="0"
-                        value={activeQuote.components[key]}
-                        onChange={(event) => updateComponent(key, Number(event.target.value))}
+                        value={activeQuote.headlineTotal}
+                        onChange={(event) =>
+                          updateActiveQuote({ headlineTotal: Number(event.target.value) })
+                        }
                       />
                     </label>
-                  ))}
-                  <label>
-                    <span>Deposit percent</span>
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={activeQuote.depositPercent}
-                      onChange={(event) =>
-                        updateActiveQuote({ depositPercent: Number(event.target.value) })
-                      }
-                    />
-                  </label>
-                  <label>
-                    <span>Cancellation notice days</span>
-                    <input
-                      type="number"
-                      min="0"
-                      value={activeQuote.cancellationDays}
-                      onChange={(event) =>
-                        updateActiveQuote({ cancellationDays: Number(event.target.value) })
-                      }
-                    />
-                  </label>
-                  <label>
-                    <span>Quote valid until</span>
-                    <input
-                      type="date"
-                      value={activeQuote.validUntil}
-                      onChange={(event) => updateActiveQuote({ validUntil: event.target.value })}
-                    />
-                  </label>
-                </div>
-                <button
-                  className="button button--secondary button--wide"
-                  type="button"
-                  onClick={() => updateActiveQuote({ missingComponents: [] })}
-                >
-                  Confirm every line item was read back
-                </button>
-                {activeQuote.missingComponents.length > 0 && (
-                  <p className="inline-note">
-                    Still unconfirmed: {activeQuote.missingComponents.join(", ")}.
-                  </p>
-                )}
-              </>
-            )}
+                    {quoteComponentKeys.map((key) => (
+                      <label key={key}>
+                        <span>{key.replaceAll(/([A-Z])/g, " $1")}</span>
+                        <input
+                          type="number"
+                          min="0"
+                          value={activeQuote.components[key]}
+                          onChange={(event) => updateComponent(key, Number(event.target.value))}
+                        />
+                      </label>
+                    ))}
+                    <label>
+                      <span>Deposit percent</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={activeQuote.depositPercent}
+                        onChange={(event) =>
+                          updateActiveQuote({ depositPercent: Number(event.target.value) })
+                        }
+                      />
+                    </label>
+                    <label>
+                      <span>Cancellation notice days</span>
+                      <input
+                        type="number"
+                        min="0"
+                        value={activeQuote.cancellationDays}
+                        onChange={(event) =>
+                          updateActiveQuote({ cancellationDays: Number(event.target.value) })
+                        }
+                      />
+                    </label>
+                    <label>
+                      <span>Quote valid until</span>
+                      <input
+                        type="date"
+                        value={activeQuote.validUntil}
+                        onChange={(event) => updateActiveQuote({ validUntil: event.target.value })}
+                      />
+                    </label>
+                  </div>
+                  <button
+                    className="button button--secondary button--wide"
+                    type="button"
+                    onClick={() => updateActiveQuote({ missingComponents: [] })}
+                  >
+                    Confirm every line item was read back
+                  </button>
+                  {activeQuote.missingComponents.length > 0 && (
+                    <p className="inline-note">
+                      Still unconfirmed: {activeQuote.missingComponents.join(", ")}.
+                    </p>
+                  )}
+                </>
+              )}
 
-            {activeQuote.draftOutcomeKind === "callback_commitment" && (
-              <label>
-                <span>Promised callback</span>
-                <input
-                  type="datetime-local"
-                  value={activeQuote.callbackAt ?? ""}
-                  onChange={(event) => updateActiveQuote({ callbackAt: event.target.value })}
-                />
-              </label>
-            )}
+              {activeQuote.draftOutcomeKind === "callback_commitment" && (
+                <label>
+                  <span>Promised callback</span>
+                  <input
+                    type="datetime-local"
+                    value={activeQuote.callbackAt ?? ""}
+                    onChange={(event) => updateActiveQuote({ callbackAt: event.target.value })}
+                  />
+                </label>
+              )}
 
-            <label>
-              <span>Transcript evidence / outcome summary</span>
-              <textarea
-                value={activeQuote.notes}
-                onChange={(event) => updateActiveQuote({ notes: event.target.value })}
-              />
-            </label>
-            {activeQuote.draftOutcomeKind === "itemized_quote" && (
               <label>
-                <span>Transcript read-back timestamp (seconds)</span>
-                <input
-                  type="number"
-                  min="0"
-                  value={activeQuote.transcriptTimestampSeconds ?? ""}
-                  onChange={(event) =>
-                    updateActiveQuote({ transcriptTimestampSeconds: Number(event.target.value) })
-                  }
+                <span>Conversation summary and supporting excerpt</span>
+                <textarea
+                  value={activeQuote.notes}
+                  onChange={(event) => updateActiveQuote({ notes: event.target.value })}
                 />
               </label>
-            )}
-            <div className="field-grid field-grid--compact">
-              <label>
-                <span>Transcript URL (optional)</span>
-                <input
-                  type="url"
-                  value={activeQuote.transcriptUrl ?? ""}
-                  onChange={(event) => updateActiveQuote({ transcriptUrl: event.target.value })}
-                />
-              </label>
-              <label>
-                <span>Recording URL (optional)</span>
-                <input
-                  type="url"
-                  value={activeQuote.recordingUrl ?? ""}
-                  onChange={(event) => updateActiveQuote({ recordingUrl: event.target.value })}
-                />
-              </label>
+              {activeQuote.draftOutcomeKind === "itemized_quote" && (
+                <label>
+                  <span>Transcript read-back timestamp (seconds)</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={activeQuote.transcriptTimestampSeconds ?? ""}
+                    onChange={(event) =>
+                      updateActiveQuote({ transcriptTimestampSeconds: Number(event.target.value) })
+                    }
+                  />
+                </label>
+              )}
+              <div className="field-grid field-grid--compact">
+                <label>
+                  <span>Transcript URL (optional)</span>
+                  <input
+                    type="url"
+                    value={activeQuote.transcriptUrl ?? ""}
+                    onChange={(event) => updateActiveQuote({ transcriptUrl: event.target.value })}
+                  />
+                </label>
+                <label>
+                  <span>Recording URL (optional)</span>
+                  <input
+                    type="url"
+                    value={activeQuote.recordingUrl ?? ""}
+                    onChange={(event) => updateActiveQuote({ recordingUrl: event.target.value })}
+                  />
+                </label>
+              </div>
+              {captureError && <p className="error-note">{captureError}</p>}
+              <button
+                className="button button--primary button--wide"
+                type="button"
+                onClick={saveStructuredOutcome}
+              >
+                <CheckCircle2 size={18} /> Save vendor outcome
+              </button>
             </div>
-            {captureError && <p className="error-note">{captureError}</p>}
-            <button
-              className="button button--primary button--wide"
-              type="button"
-              onClick={saveStructuredOutcome}
-            >
-              <CheckCircle2 size={18} /> Validate and save outcome
-            </button>
           </div>
         </div>
       )}
@@ -588,6 +609,55 @@ export function VendorCalls({
         onDeclined={() => finishCall("declined", null)}
         onEnded={(conversationId) => finishCall("ended", conversationId)}
       />
+      {importDialogQuoteId && (
+        <div className="call-dialog-backdrop" role="presentation">
+          <div
+            className="call-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="conversation-import-title"
+          >
+            <span className="call-dialog__icon">
+              <Headphones size={20} />
+            </span>
+            <span className="kicker">Existing conversation</span>
+            <h2 id="conversation-import-title">Add a completed vendor call</h2>
+            <p>
+              Paste the ElevenLabs conversation ID for{" "}
+              {quotes.find((quote) => quote.id === importDialogQuoteId)?.vendorName}.
+            </p>
+            <label>
+              <span>Conversation ID</span>
+              <input
+                autoFocus
+                value={conversationIdInput}
+                placeholder="conv_..."
+                onChange={(event) => setConversationIdInput(event.target.value)}
+              />
+            </label>
+            <div className="call-dialog__actions">
+              <button
+                className="button button--secondary"
+                type="button"
+                onClick={() => setImportDialogQuoteId(undefined)}
+              >
+                Cancel
+              </button>
+              <button
+                className="button button--primary"
+                type="button"
+                disabled={!conversationIdInput.trim().startsWith("conv_")}
+                onClick={() => {
+                  const quote = quotes.find((item) => item.id === importDialogQuoteId);
+                  if (quote) void importByConversationId(quote, conversationIdInput);
+                }}
+              >
+                Read conversation
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

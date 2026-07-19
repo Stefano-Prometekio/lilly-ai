@@ -38,12 +38,12 @@ export function MarketResearch({
     <section className="workspace-grid">
       <div className="panel panel--hero market-hero">
         <div className="eyebrow">
-          <Radar size={15} /> Market intelligence
+          <Radar size={15} /> Local market scan
         </div>
-        <h1>Establish the reference before calling.</h1>
+        <h1>Know the market before contacting vendors.</h1>
         <p className="lede">
-          Lilly searches for caterers and public pricing signals that match the confirmed event.
-          This becomes the independent benchmark—not a vendor quote.
+          Lilly finds relevant caterers and public pricing signals for your event. You get a useful
+          local reference point before any vendor conversation begins.
         </p>
         <div className="research-query">
           <Search size={20} />
@@ -68,10 +68,10 @@ export function MarketResearch({
           disabled={brief.status !== "confirmed" || running}
         >
           <Radar size={18} className={running ? "spin" : ""} />
-          {running ? progress?.message || "Starting live research..." : "Run market research"}
+          {running ? progress?.message || "Starting the market scan..." : "Scan the local market"}
         </button>
         {brief.status !== "confirmed" && (
-          <p className="inline-note">Confirm the brief before researching.</p>
+          <p className="inline-note">Confirm your event brief before starting the market scan.</p>
         )}
         {error && <p className="error-note">{error}</p>}
       </div>
@@ -79,8 +79,8 @@ export function MarketResearch({
       <div className="panel">
         <div className="section-heading">
           <div>
-            <span className="kicker">Independent benchmark</span>
-            <h2>Expected market range</h2>
+            <span className="kicker">Your pricing reference</span>
+            <h2>Expected local range</h2>
           </div>
           <span className={`status-pill ${hasReference ? "status-pill--success" : ""}`}>
             {reference.status}
@@ -100,7 +100,7 @@ export function MarketResearch({
               </div>
             </div>
 
-            <ol className="research-progress__steps" aria-label="Market research progress">
+            <ol className="research-progress__steps" aria-label="Market scan progress">
               {marketResearchStages.map((stage, index) => {
                 const complete = index < activeStageIndex;
                 const active = index === activeStageIndex;
@@ -135,7 +135,7 @@ export function MarketResearch({
                 <strong>{formatMoney(reference.lowTotal, brief.currency)}</strong>
               </div>
               <div className="range-chart__median">
-                <span>Market reference</span>
+                <span>Typical price</span>
                 <strong>{formatMoney(reference.medianTotal, brief.currency)}</strong>
               </div>
               <div>
@@ -161,8 +161,8 @@ export function MarketResearch({
             <div className="warning-card">
               <ShieldCheck size={18} />
               <span>
-                Google Places identifies local suppliers; only cited public pricing evidence is used
-                to calculate this benchmark.
+                Lilly uses local vendor listings for discovery. Only linked public pricing sources
+                influence this range.
               </span>
             </div>
             <div className="source-list">
@@ -179,7 +179,7 @@ export function MarketResearch({
             <div className="vendor-map-section">
               <div className="map-section-heading">
                 <div>
-                  <span className="kicker">Supplier landscape</span>
+                  <span className="kicker">Local vendor landscape</span>
                   <h3>Event area and discovered vendors</h3>
                 </div>
                 <span>{reference.vendors.length} vendors found</span>
@@ -215,8 +215,8 @@ export function MarketResearch({
         ) : (
           <div className="empty-state">
             <Radar size={38} />
-            <strong>No market reference yet</strong>
-            <span>Confirm the brief, then launch the research agent.</span>
+            <strong>Your market snapshot will appear here</strong>
+            <span>Confirm the event brief, then ask Lilly to scan the local market.</span>
           </div>
         )}
       </div>

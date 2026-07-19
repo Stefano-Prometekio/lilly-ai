@@ -35,13 +35,22 @@ import { confirmCanonicalBrief } from "./lib/canonical-brief";
 import { createDemoBrief, createDemoQuotes, demoMarketReference } from "./lib/demo-scenario";
 
 const steps: Array<{ id: CampaignStep; label: string; icon: typeof Mic2 }> = [
-  { id: "intake", label: "Intake", icon: Mic2 },
-  { id: "research", label: "Market research", icon: FileSearch },
-  { id: "calls", label: "Vendor calls", icon: ListChecks },
+  { id: "intake", label: "Plan your event", icon: Mic2 },
+  { id: "research", label: "Scan the market", icon: FileSearch },
+  { id: "calls", label: "Contact vendors", icon: ListChecks },
   { id: "compare", label: "Compare", icon: BarChart3 },
-  { id: "negotiate", label: "Negotiate", icon: Handshake },
+  { id: "negotiate", label: "Improve the offer", icon: Handshake },
   { id: "recommend", label: "Recommendation", icon: Sparkles },
 ];
+
+const stepDescriptions: Record<CampaignStep, string> = {
+  intake: "Build one clear event brief",
+  research: "Understand local pricing",
+  calls: "Collect comparable offers",
+  compare: "Review value side by side",
+  negotiate: "Ask for a better outcome",
+  recommend: "Choose with confidence",
+};
 
 function App() {
   const [step, setStep] = useState<CampaignStep>("intake");
@@ -69,6 +78,7 @@ function App() {
     (quote) => quote.status === "negotiated" && Boolean(quote.negotiation?.changedTerms),
   );
   const stepIndex = steps.findIndex((item) => item.id === step);
+  const activeStep = steps[stepIndex];
 
   const stepComplete: Record<CampaignStep, boolean> = {
     intake: brief.status === "confirmed" && Boolean(brief.contentHash),
@@ -153,6 +163,10 @@ function App() {
     if (next && stepUnlocked[next.id]) setStep(next.id);
   };
 
+  const upcomingStep = steps[stepIndex + 1];
+  const upcomingStepUnlocked = upcomingStep ? stepUnlocked[upcomingStep.id] : false;
+  const completedStepCount = Object.values(stepComplete).filter(Boolean).length;
+
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -160,19 +174,24 @@ function App() {
           <span className="brand-mark">L</span>
           <span>
             <strong>Lilly</strong>
-            <small>Your event planning assistant</small>
+            <small>Your AI event sourcing assistant</small>
           </span>
         </a>
         <div className="campaign-chip">
-          <span className="live-dot" /> Catering campaign · Brief v{brief.version}
+          <span className="live-dot" /> Event sourcing workspace · Plan v{brief.version}
         </div>
         <div className="topbar__status">
-          <Check size={15} /> Evidence mode on
+          <Check size={15} /> Verified sources on
         </div>
       </header>
 
       <aside className="sidebar">
-        <span className="sidebar-label">Campaign</span>
+        <div className="sidebar-heading">
+          <span className="sidebar-label">Your sourcing plan</span>
+          <span>
+            {completedStepCount} of {steps.length} complete
+          </span>
+        </div>
         <nav>
           {steps.map((item, index) => {
             const Icon = item.icon;
@@ -191,19 +210,37 @@ function App() {
                 </span>
                 <span>
                   <small>0{index + 1}</small>
-                  {item.label}
+                  <strong>{item.label}</strong>
+                  <em>{stepDescriptions[item.id]}</em>
                 </span>
               </button>
             );
           })}
         </nav>
         <div className="sidebar-footer">
-          <strong>Hackathon demo</strong>
-          <span>{demoMode ? "Transparent scripted dry run" : "Browser voice mode"}</span>
+          <strong>{demoMode ? "Sample event active" : "Lilly workspace"}</strong>
+          <span>
+            {demoMode ? "Explore the full experience safely" : "AI event sourcing assistant"}
+          </span>
         </div>
       </aside>
 
       <main className="main-workspace">
+        <div className="workspace-context" aria-label="Current workflow progress">
+          <div>
+            <span className="workspace-context__step">
+              Step {stepIndex + 1} of {steps.length}
+            </span>
+            <strong>{activeStep.label}</strong>
+            <span>{stepDescriptions[step]}</span>
+          </div>
+          <progress
+            className="workspace-progress"
+            value={stepIndex + 1}
+            max={steps.length}
+            aria-label={`Step ${stepIndex + 1} of ${steps.length}`}
+          />
+        </div>
         {step === "intake" && (
           <BriefForm
             brief={brief}
@@ -255,16 +292,23 @@ function App() {
         {step === "recommend" && <Recommendation brief={brief} quotes={normalizedQuotes} />}
       </main>
 
-      {stepIndex < steps.length - 1 && (
-        <button
-          className="next-step"
-          type="button"
-          onClick={nextStep}
-          disabled={!stepUnlocked[steps[stepIndex + 1].id]}
-        >
-          Continue to {steps[stepIndex + 1].label}
-          <ChevronRight size={18} />
-        </button>
+      {upcomingStep && (
+        <div className="workflow-footer">
+          <span>
+            {upcomingStepUnlocked
+              ? `${activeStep.label} is ready. Continue when you are.`
+              : `Complete this step to unlock ${upcomingStep.label.toLowerCase()}.`}
+          </span>
+          <button
+            className="next-step"
+            type="button"
+            onClick={nextStep}
+            disabled={!upcomingStepUnlocked}
+          >
+            Continue to {upcomingStep.label}
+            <ChevronRight size={18} />
+          </button>
+        </div>
       )}
     </div>
   );
