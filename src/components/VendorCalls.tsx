@@ -386,6 +386,16 @@ export function VendorCalls({
                 >
                   <Headphones size={17} /> Open call room
                 </button>
+                <button
+                  className="text-button"
+                  type="button"
+                  disabled={importingId === quote.id}
+                  onClick={() => importByConversationId(quote)}
+                >
+                  {importingId === quote.id
+                    ? "Extracting transcript..."
+                    : "Import from ElevenLabs conversation ID"}
+                </button>
               </article>
             );
           })}
