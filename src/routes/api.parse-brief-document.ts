@@ -55,7 +55,7 @@ async function extractTextFromPptx(buffer: ArrayBuffer) {
   return parts.join("\n\n");
 }
 
-async function extractFieldsWithGateway(args: {
+async function extractFieldsWithOpenAI(args: {
   apiKey: string;
   fileName: string;
   text?: string;
@@ -78,23 +78,23 @@ Numeric fields must be numbers, not strings. Do not invent values. Respond with 
     });
     userContent.push({
       type: "text",
-      text: "Extract the catering brief fields from this document.",
+      text: "Extract the catering brief fields from this document. Respond with JSON only.",
     });
   } else {
     userContent.push({
       type: "text",
-      text: `Extract the catering brief fields from the document "${args.fileName}":\n\n${args.text ?? ""}`,
+      text: `Extract the catering brief fields from the document "${args.fileName}" and respond with JSON only:\n\n${args.text ?? ""}`,
     });
   }
 
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Lovable-API-Key": args.apiKey,
+      Authorization: `Bearer ${args.apiKey}`,
     },
     body: JSON.stringify({
-      model: "google/gemini-3-flash-preview",
+      model: "gpt-4o-mini",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userContent },
@@ -105,14 +105,13 @@ Numeric fields must be numbers, not strings. Do not invent values. Respond with 
 
   if (!response.ok) {
     const detail = await response.text();
-    throw new Error(`AI Gateway extraction failed: ${response.status} ${detail.slice(0, 300)}`);
+    throw new Error(`OpenAI extraction failed: ${response.status} ${detail.slice(0, 300)}`);
   }
   const payload = (await response.json()) as {
     choices?: Array<{ message?: { content?: string } }>;
   };
   const outputText = payload.choices?.[0]?.message?.content?.trim() ?? "";
-  if (!outputText) throw new Error("AI Gateway returned no fields.");
-  // Strip accidental code fences.
+  if (!outputText) throw new Error("OpenAI returned no fields.");
   const cleaned = outputText.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "");
   return JSON.parse(cleaned) as Record<string, unknown>;
 }
