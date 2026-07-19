@@ -185,15 +185,15 @@ export function BriefForm({ brief, onChange, onConfirm, onLoadDemo }: BriefFormP
           <div>
             <FileJson2 size={18} />
             <span>
-              <strong>Import an existing brief or inventory</strong>
-              <small>JSON, CSV, or key-value text is parsed into the same fields as voice.</small>
+            <strong>Import an existing brief or inventory</strong>
+              <small>PDF, Word, PowerPoint, JSON, CSV, or key-value text.</small>
             </span>
           </div>
           <label className="button button--secondary document-button">
             Choose document
             <input
               type="file"
-              accept=".json,.csv,.txt,application/json,text/csv,text/plain"
+              accept=".json,.csv,.txt,.pdf,.docx,.pptx,application/json,text/csv,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation"
               disabled={confirmed}
               onChange={(event) => void handleDocument(event.currentTarget.files?.[0])}
             />
