@@ -70,10 +70,18 @@ export function BrowserPhoneCall({ call, onDeclined, onEnded }: BrowserPhoneCall
         call.dynamicVariables.call_session_id ?? call.dynamicVariables.brief_id ?? "vendor",
       );
       const token = await getElevenLabsConversationToken(LILLY_PUBLIC_AGENT_ID, participantName);
+      const vendorName = String(call.dynamicVariables.vendor_name ?? call.vendorName);
+      const eventSummary = String(call.dynamicVariables.event_summary ?? "an upcoming event");
+      const firstMessage = `Hi, this is Lilly, an AI procurement assistant calling on behalf of an event buyer. Am I reaching ${vendorName}? I'm gathering a catering quote for ${eventSummary} and hoping you have a couple of minutes to walk through it.`;
       const commonOptions = {
         connectionType: "webrtc" as const,
         dynamicVariables: call.dynamicVariables,
         userId: participantName,
+        overrides: {
+          agent: {
+            firstMessage,
+          },
+        },
       };
       if (token) {
         await startSession({ ...commonOptions, conversationToken: token });
