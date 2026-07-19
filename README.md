@@ -1,68 +1,91 @@
-# The Negotiator - Catering MVP
+# Lilly - AI event sourcing assistant
 
-An evidence-constrained voice procurement demo for the Hack-Nation / ElevenLabs "The Negotiator" challenge.
+Lilly turns one confirmed catering brief into comparable vendor offers and an evidence-backed
+negotiation. It combines ElevenLabs voice agents, live market research, deterministic quote
+normalization, and explicit buyer authority controls for the Hack-Nation / ElevenLabs
+**The Negotiator** challenge.
 
-The hackathon path is intentionally narrow:
+## Judge quick start
 
-1. Build and confirm one canonical catering brief by voice or document.
-2. Reuse the exact confirmed brief for three live, role-played vendor calls.
-3. Capture itemized quotes and evidence from every call.
-4. Normalize the quotes to the same scope.
-5. Make one evidence-backed negotiation callback that changes a price or term.
-6. Rank the final offers and link every important claim to call evidence.
+1. Install [Node.js 22](https://nodejs.org/) and run `npm install`.
+2. Copy `.env.example` to `.env.local`.
+3. Run `npm run dev` and open the local URL shown by Vite.
+4. Create a workspace, choose **Load sample event**, and follow the guided workflow.
 
-## Current status
+The sample event demonstrates the frozen brief, researched benchmark, three structured vendor
+outcomes, normalization, comparison, and evidence-linked leverage without presenting fixture data
+as live market evidence. Live research, transcript extraction, and voice calls require the relevant
+credentials described in [Architecture and setup](docs/ARCHITECTURE.md).
 
-The first end-to-end browser demo is implemented and connected to `Stefano-Prometekio/lilly-ai`. It includes the campaign UI, independent market-baseline research, three private persona call rooms, deterministic normalization, evidence-gated negotiation, Supabase persistence, and ElevenLabs token/webhook functions.
+For a short judging script, challenge fit, and evaluation checklist, see the
+[Hackathon judge guide](docs/JUDGE_GUIDE.md).
+
+## What Lilly demonstrates
+
+- **One frozen scope:** manual, voice, PDF, DOCX, and PPTX intake converge on a canonical brief;
+  confirmation produces a SHA-256 content hash.
+- **Grounded market context:** Google Places discovers local vendors and OpenAI web search builds a
+  price benchmark from allow-listed source URLs.
+- **Voice procurement:** ElevenLabs supports browser conversations and server-initiated outbound
+  calls with the exact brief version injected as runtime context.
+- **Comparable offers:** transcripts are converted into a strict itemized quote schema, then all
+  offers are normalized with deterministic TypeScript.
+- **Evidence-gated leverage:** a competitor claim is available only when the alternative is
+  eligible, cheaper, tied to the same brief hash, and backed by transcript evidence.
+- **Human authority:** Lilly cannot book, make a binding commitment, or silently change scope.
+
+## Workflow
+
+`Confirm brief -> Research market -> Contact vendors -> Compare -> Negotiate -> Recommend`
+
+Ranking is deliberately explainable. An offer must have a finalized itemized outcome, complete line
+items, at least 85% completeness, at least 75% evidence confidence, transcript evidence, the same
+confirmed brief hash, and a completed market reference. Eligible offers receive a visible score from
+price, evidence, completeness, and cancellation flexibility.
 
 ## Run locally
 
 ```bash
 npm install
+copy .env.example .env.local
 npm run dev
 ```
 
-Copy `.env.example` to `.env.local`. Keep `OPENAI_API_KEY`, `GOOGLE_PLACES_API_KEY`, and
-`ELEVENLABS_API_KEY` server-only; never give them a `VITE_` prefix. Configure the same server
-secrets in the Lovable deployment environment before publishing. Browser-safe IDs may use the
-documented `VITE_*` variables.
+On macOS or Linux, replace the `copy` command with `cp`.
 
-After changing Lilly's prompt or intake-tool schema, apply it to the live ElevenLabs agent with:
+After changing Lilly's prompt or tool schema, update the configured ElevenLabs agent with:
 
 ```bash
 npm run elevenlabs:update-agent
 ```
 
-Verification:
+## Verification
 
 ```bash
-npm run lint
 npm run test
 npm run build
+npm run lint
 ```
 
-## Project documents
+Packaging verification on 19 July 2026: **16/16 tests passed**, the production client/SSR/Nitro
+build completed, and lint completed with zero errors (six non-blocking Fast Refresh warnings in
+shared UI component modules).
 
+## Documentation
+
+- [Hackathon judge guide](docs/JUDGE_GUIDE.md)
+- [Architecture, setup, APIs, and current implementation status](docs/ARCHITECTURE.md)
 - [MVP implementation plan](docs/implementation-plan.md)
 - [ElevenLabs agent design](docs/elevenlabs-agent-design.md)
-- [Inputs and decisions](docs/inputs-needed.md)
-
-## Live integrations
-
-- `/api/market-research`: Google Places discovery followed by OpenAI web research, with only
-  verifiable price-bearing sources allowed to set the benchmark.
-
-## Supabase functions
-
-- `market-baseline`: optional edge-function implementation retained for a future Supabase-hosted research path.
-- `elevenlabs-token`: short-lived private WebRTC session token issuance.
-- `elevenlabs-webhook`: HMAC-verified transcript, analysis, audio, and failure ingestion.
-- `agent-tools`: authenticated intake, quote capture, completeness, counteroffer, and structured-outcome tools for Lilly.
+- [ElevenLabs tool contracts](elevenlabs/tool-contracts.md)
+- [Demo vendor personas](elevenlabs/demo-personas.md)
+- [Required inputs and decisions](docs/inputs-needed.md)
 
 ## Safety defaults
 
 - The agent identifies itself as AI when asked and never fabricates bids or authority.
-- No quote is used as leverage without an evidence reference.
+- No competing quote is used as leverage without an evidence reference.
+- Unknown required scope blocks ranking instead of being treated as free.
 - No vendor is booked and no binding commitment is accepted.
-- Secrets stay in local environment files and are never committed.
+- API keys remain server-side; `.env.local` is not committed.
 - Demo calls use consenting role-players.

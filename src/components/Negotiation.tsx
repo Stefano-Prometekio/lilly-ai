@@ -1,11 +1,6 @@
 import { CheckCircle2, Handshake, PhoneOutgoing, ShieldCheck, Target } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type {
-  CateringBrief,
-  NegotiationPlan,
-  NormalizedQuote,
-  VendorQuote,
-} from "../domain";
+import type { CateringBrief, NegotiationPlan, NormalizedQuote, VendorQuote } from "../domain";
 import { finalizeVendorQuote, formatMoney } from "../lib/procurement";
 import { BrowserPhoneCall, type BrowserCallRequest } from "./BrowserPhoneCall";
 
@@ -209,8 +204,7 @@ export function Negotiation({ brief, finalists, plans, onUpdate, onAllDone }: Ne
           ...finalist,
           status: "negotiated",
           negotiatedChange: "No answer on callback; original offer kept.",
-          initialNormalizedTotal:
-            finalist.initialNormalizedTotal ?? finalist.normalizedTotal,
+          initialNormalizedTotal: finalist.initialNormalizedTotal ?? finalist.normalizedTotal,
           negotiation: {
             initialTotal: finalist.initialNormalizedTotal ?? finalist.normalizedTotal,
             finalTotal: finalist.initialNormalizedTotal ?? finalist.normalizedTotal,
@@ -304,8 +298,7 @@ export function Negotiation({ brief, finalists, plans, onUpdate, onAllDone }: Ne
         onUpdate({
           ...finalist,
           status: "negotiated",
-          initialNormalizedTotal:
-            finalist.initialNormalizedTotal ?? finalist.normalizedTotal,
+          initialNormalizedTotal: finalist.initialNormalizedTotal ?? finalist.normalizedTotal,
           negotiatedChange: "Transcript could not be processed; original offer kept.",
           negotiation: {
             initialTotal: finalist.initialNormalizedTotal ?? finalist.normalizedTotal,
@@ -364,7 +357,10 @@ export function Negotiation({ brief, finalists, plans, onUpdate, onAllDone }: Ne
             const finalTotal = f.negotiation?.finalTotal ?? initialTotal;
             const delta = f.negotiation?.delta ?? 0;
             return (
-              <article key={f.id} className={done ? "vendor-card vendor-card--done" : "vendor-card"}>
+              <article
+                key={f.id}
+                className={done ? "vendor-card vendor-card--done" : "vendor-card"}
+              >
                 <div className="vendor-card__top">
                   <span className="vendor-index">0{i + 1}</span>
                   <span className={`vendor-state ${done ? "vendor-state--ready" : ""}`}>

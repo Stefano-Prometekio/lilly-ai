@@ -121,8 +121,6 @@ export function BrowserPhoneCall({ call, onDeclined, onEnded }: BrowserPhoneCall
     }
   }, [status, call, phase, onEnded, rawConversation]);
 
-
-
   // Live-call timer
   useEffect(() => {
     if (phase !== "live") return;

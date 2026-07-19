@@ -55,7 +55,11 @@ function loadGoogleMaps(apiKey: string) {
   mapsLoader = new Promise<MapsApi>((resolve, reject) => {
     const finish = async () => {
       try {
-        const g = (window as unknown as { google?: { maps: { importLibrary: (n: string) => Promise<unknown> } } }).google;
+        const g = (
+          window as unknown as {
+            google?: { maps: { importLibrary: (n: string) => Promise<unknown> } };
+          }
+        ).google;
         if (!g?.maps?.importLibrary) {
           reject(new Error("Google Maps did not load."));
           return;
@@ -75,7 +79,10 @@ function loadGoogleMaps(apiKey: string) {
       reject(error);
     };
 
-    if ((window as unknown as { google?: { maps?: { importLibrary?: unknown } } }).google?.maps?.importLibrary) {
+    if (
+      (window as unknown as { google?: { maps?: { importLibrary?: unknown } } }).google?.maps
+        ?.importLibrary
+    ) {
       void finish();
       return;
     }
