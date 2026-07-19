@@ -442,6 +442,74 @@ export function VendorCalls({
           </ol>
         )}
 
+        <details className="technical-proof technical-proof--compact" style={{ marginTop: 16 }}>
+          <summary>
+            <span>
+              <strong>Test Compare with past calls</strong>
+              <small>
+                Paste ElevenLabs conversation IDs to reuse existing transcripts instead of
+                re-calling every vendor.
+              </small>
+            </span>
+          </summary>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
+            {quotes.map((quote, index) => (
+              <label key={quote.id} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <span>
+                  {index + 1}. {quote.vendorName}
+                </span>
+                <input
+                  type="text"
+                  placeholder="conv_..."
+                  value={bulkIds[index] ?? ""}
+                  onChange={(event) =>
+                    setBulkIds((current) => {
+                      const next = [...current];
+                      next[index] = event.target.value;
+                      return next;
+                    })
+                  }
+                />
+              </label>
+            ))}
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <button
+                className="button button--primary"
+                type="button"
+                onClick={runBulkImport}
+                disabled={
+                  bulkRunning ||
+                  !bulkIds.some((id) => id.trim().startsWith("conv_")) ||
+                  !brief.contentHash
+                }
+              >
+                {bulkRunning ? "Importing..." : "Import all conversations"}
+              </button>
+              <button
+                className="text-button"
+                type="button"
+                disabled={bulkRunning}
+                onClick={() =>
+                  setBulkIds([
+                    "conv_4701kxwaxgr0fswv7a10w7w31s67",
+                    "conv_6401kxwb4shzf25bdt5g3kt583fh",
+                    "conv_6501kxwb63bcfx09kk6m0jtwa6s1",
+                  ])
+                }
+              >
+                Fill with recent demo IDs
+              </button>
+            </div>
+            {bulkLog.length > 0 && (
+              <ol className="call-sequence-log">
+                {bulkLog.map((line) => (
+                  <li key={line}>{line}</li>
+                ))}
+              </ol>
+            )}
+          </div>
+        </details>
+
         <div className="vendor-grid">
           {quotes.map((quote, index) => {
             const copy = personaCopy[quote.persona];
