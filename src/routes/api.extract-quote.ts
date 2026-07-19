@@ -64,17 +64,24 @@ export const Route = createFileRoute("/api/extract-quote")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        console.log("[extract-quote] request received");
         const elevenKey = process.env.ELEVENLABS_API_KEY;
         const openaiKey = process.env.OPENAI_API_KEY;
         if (!elevenKey || !openaiKey) {
-          return Response.json({ error: "Missing ELEVENLABS_API_KEY or OPENAI_API_KEY" }, { status: 500 });
+          return Response.json(
+            { error: "Missing ELEVENLABS_API_KEY or OPENAI_API_KEY" },
+            { status: 500 },
+          );
         }
 
         let parsed;
         try {
           parsed = bodySchema.parse(await request.json());
         } catch (e) {
-          return Response.json({ error: "Invalid request", detail: (e as Error).message }, { status: 400 });
+          return Response.json(
+            { error: "Invalid request", detail: (e as Error).message },
+            { status: 400 },
+          );
         }
 
         const convRes = await fetch(
@@ -83,13 +90,25 @@ export const Route = createFileRoute("/api/extract-quote")({
         );
         if (!convRes.ok) {
           const text = await convRes.text();
+          const retryable = [404, 409, 425, 429, 500, 502, 503, 504].includes(convRes.status);
+          console.warn("[extract-quote] conversation is not available", {
+            conversationId: parsed.conversationId,
+            status: convRes.status,
+            retryable,
+          });
           return Response.json(
-            { error: "ElevenLabs conversation fetch failed", status: convRes.status, detail: text },
-            { status: 502 },
+            {
+              error: "ElevenLabs conversation fetch failed",
+              status: convRes.status,
+              detail: text,
+              retryable,
+            },
+            { status: retryable ? 425 : 502 },
           );
         }
         const conv = (await convRes.json()) as {
           transcript?: TranscriptTurn[];
+          status?: string;
           metadata?: { call_duration_secs?: number; termination_reason?: string };
         };
         const turns = (conv.transcript ?? [])
@@ -98,8 +117,24 @@ export const Route = createFileRoute("/api/extract-quote")({
           .join("\n");
 
         if (!turns.trim()) {
-          return Response.json({ error: "Empty transcript" }, { status: 422 });
+          console.log("[extract-quote] transcript is still processing", {
+            conversationId: parsed.conversationId,
+            conversationStatus: conv.status ?? "unknown",
+          });
+          return Response.json(
+            {
+              error: "The post-call transcript is still being prepared",
+              retryable: true,
+              conversationStatus: conv.status ?? "unknown",
+            },
+            { status: 425 },
+          );
         }
+
+        console.log("[extract-quote] transcript ready", {
+          conversationId: parsed.conversationId,
+          turnCount: conv.transcript?.length ?? 0,
+        });
 
         const systemPrompt = `You extract a structured catering vendor quote from a phone-call transcript between "Lilly" (an AI event-planning assistant) and a catering vendor.
 
@@ -127,7 +162,10 @@ Do not invent numbers. If a component is unknown, use 0.`;
             temperature: 0,
             messages: [
               { role: "system", content: systemPrompt },
-              { role: "user", content: `Today: ${new Date().toISOString()}\n\nTranscript:\n${turns}` },
+              {
+                role: "user",
+                content: `Today: ${new Date().toISOString()}\n\nTranscript:\n${turns}`,
+              },
             ],
             response_format: { type: "json_schema", json_schema: EXTRACT_SCHEMA },
           }),
@@ -135,9 +173,20 @@ Do not invent numbers. If a component is unknown, use 0.`;
 
         if (!oaiRes.ok) {
           const text = await oaiRes.text();
+          const retryable = [408, 409, 425, 429, 500, 502, 503, 504].includes(oaiRes.status);
+          console.error("[extract-quote] OpenAI extraction failed", {
+            conversationId: parsed.conversationId,
+            status: oaiRes.status,
+            retryable,
+          });
           return Response.json(
-            { error: "OpenAI extraction failed", status: oaiRes.status, detail: text },
-            { status: 502 },
+            {
+              error: "OpenAI extraction failed",
+              status: oaiRes.status,
+              detail: text,
+              retryable,
+            },
+            { status: retryable ? 503 : 502 },
           );
         }
         const oaiJson = (await oaiRes.json()) as {
@@ -157,6 +206,10 @@ Do not invent numbers. If a component is unknown, use 0.`;
           );
         }
 
+        console.log("[extract-quote] quote extracted", {
+          conversationId: parsed.conversationId,
+          outcomeKind: (extracted as { outcomeKind?: unknown }).outcomeKind ?? "unknown",
+        });
         return Response.json({
           ok: true,
           extracted,

@@ -37,7 +37,7 @@ function describeCanonicalScope(dynamicVariables: Record<string, string | number
 }
 
 export function BrowserPhoneCall({ call, onDeclined, onEnded }: BrowserPhoneCallProps) {
-  const { startSession, endSession, getId } = useConversationControls();
+  const { startSession, endSession } = useConversationControls();
   const { status } = useConversationStatus();
   const { isMuted, setMuted } = useConversationInput();
   const [phase, setPhase] = useState<UiPhase>("ringing");
@@ -94,6 +94,9 @@ export function BrowserPhoneCall({ call, onDeclined, onEnded }: BrowserPhoneCall
         connectionType: "webrtc" as const,
         dynamicVariables: call.dynamicVariables,
         userId: participantName,
+        onConnect: ({ conversationId }: { conversationId: string }) => {
+          conversationIdRef.current = conversationId;
+        },
         overrides: {
           agent: {
             firstMessage,
@@ -101,14 +104,9 @@ export function BrowserPhoneCall({ call, onDeclined, onEnded }: BrowserPhoneCall
         },
       };
       if (token) {
-        await startSession({ ...commonOptions, conversationToken: token });
+        startSession({ ...commonOptions, conversationToken: token });
       } else {
-        await startSession({ ...commonOptions, agentId: LILLY_PUBLIC_AGENT_ID });
-      }
-      try {
-        conversationIdRef.current = getId() || null;
-      } catch {
-        conversationIdRef.current = null;
+        startSession({ ...commonOptions, agentId: LILLY_PUBLIC_AGENT_ID });
       }
     } catch (e) {
       setError((e as Error).message);
