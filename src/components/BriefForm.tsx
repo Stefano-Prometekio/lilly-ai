@@ -93,8 +93,41 @@ export function BriefForm({ brief, onChange, onConfirm, onLoadDemo }: BriefFormP
     if (!file || confirmed) return;
     setDocumentError(undefined);
     try {
-      const fields = parseBriefDocument(file.name, file.type, await file.text());
+      const lowerName = file.name.toLowerCase();
+      const isRichDoc =
+        lowerName.endsWith(".pdf") ||
+        lowerName.endsWith(".docx") ||
+        lowerName.endsWith(".pptx") ||
+        file.type === "application/pdf" ||
+        file.type ===
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+        file.type ===
+          "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+
+      let fields: Partial<Parameters<typeof applyBriefFieldUpdate>[1]>;
+      if (isRichDoc) {
+        const body = new FormData();
+        body.append("file", file);
+        const response = await fetch("/api/parse-brief-document", {
+          method: "POST",
+          body,
+        });
+        const payload = (await response.json()) as {
+          fields?: Record<string, unknown>;
+          error?: string;
+        };
+        if (!response.ok || !payload.fields) {
+          throw new Error(payload.error || "Document parsing failed.");
+        }
+        fields = payload.fields as typeof fields;
+      } else {
+        fields = parseBriefDocument(file.name, file.type, await file.text());
+      }
+
       const { nextBrief, updatedFields } = applyBriefFieldUpdate(brief, fields);
+      if (!updatedFields.length) {
+        throw new Error("No recognized catering brief fields were found in this document.");
+      }
       onChange({
         ...nextBrief,
         intakeEvidence: {
@@ -104,7 +137,7 @@ export function BriefForm({ brief, onChange, onConfirm, onLoadDemo }: BriefFormP
             {
               id: `document-${Date.now().toString(36)}`,
               name: file.name,
-              mimeType: file.type || "text/plain",
+              mimeType: file.type || "application/octet-stream",
               extractedFields: updatedFields,
               importedAt: new Date().toISOString(),
             },
@@ -152,15 +185,15 @@ export function BriefForm({ brief, onChange, onConfirm, onLoadDemo }: BriefFormP
           <div>
             <FileJson2 size={18} />
             <span>
-              <strong>Import an existing brief or inventory</strong>
-              <small>JSON, CSV, or key-value text is parsed into the same fields as voice.</small>
+            <strong>Import an existing brief or inventory</strong>
+              <small>PDF, Word, PowerPoint, JSON, CSV, or key-value text.</small>
             </span>
           </div>
           <label className="button button--secondary document-button">
             Choose document
             <input
               type="file"
-              accept=".json,.csv,.txt,application/json,text/csv,text/plain"
+              accept=".json,.csv,.txt,.pdf,.docx,.pptx,application/json,text/csv,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.presentationml.presentation"
               disabled={confirmed}
               onChange={(event) => void handleDocument(event.currentTarget.files?.[0])}
             />
