@@ -74,7 +74,9 @@ export function VendorCalls({
 }: VendorCallsProps) {
   const activeQuote = quotes.find((quote) => quote.id === activeQuoteId);
   const abortRef = useRef<{ aborted: boolean }>({ aborted: false });
-  const resolveCallRef = useRef<((reason: "ended" | "declined") => void) | null>(null);
+  const resolveCallRef = useRef<
+    ((result: { reason: "ended" | "declined"; conversationId: string | null }) => void) | null
+  >(null);
   const [captureError, setCaptureError] = useState<string>();
   const [seq, setSeq] = useState<SequentialState>({
     running: false,
@@ -84,6 +86,7 @@ export function VendorCalls({
   const [currentCall, setCurrentCall] = useState<(BrowserCallRequest & { quoteId: string }) | null>(
     null,
   );
+  const [importingId, setImportingId] = useState<string | null>(null);
 
   useEffect(
     () => () => {
@@ -92,7 +95,9 @@ export function VendorCalls({
     [],
   );
 
-  function waitForBrowserCall(quote: VendorQuote): Promise<"ended" | "declined"> {
+  function waitForBrowserCall(
+    quote: VendorQuote,
+  ): Promise<{ reason: "ended" | "declined"; conversationId: string | null }> {
     return new Promise((resolve) => {
       resolveCallRef.current = resolve;
       setCurrentCall({
@@ -104,11 +109,11 @@ export function VendorCalls({
     });
   }
 
-  function finishCall(reason: "ended" | "declined") {
+  function finishCall(reason: "ended" | "declined", conversationId: string | null = null) {
     setCurrentCall(null);
     const resolve = resolveCallRef.current;
     resolveCallRef.current = null;
-    resolve?.(reason);
+    resolve?.({ reason, conversationId });
   }
 
   function finalizeUnquotedCall(quote: VendorQuote, reason: "ended" | "declined") {
@@ -125,6 +130,72 @@ export function VendorCalls({
       },
       brief,
     );
+  }
+
+  async function extractQuoteFromTranscript(
+    quote: VendorQuote,
+    conversationId: string,
+  ): Promise<VendorQuote | null> {
+    try {
+      const res = await fetch("/api/extract-quote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversationId, currency: brief.currency }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const payload = (await res.json()) as {
+        extracted: {
+          outcomeKind: "itemized_quote" | "callback_commitment" | "documented_decline";
+          summary: string;
+          headlineTotal: number;
+          components: VendorQuote["components"];
+          depositPercent: number;
+          cancellationDays: number;
+          validUntilDays: number;
+          callbackAt: string | null;
+          notes: string;
+        };
+      };
+      const e = payload.extracted;
+      const validUntil = e.validUntilDays > 0
+        ? new Date(Date.now() + e.validUntilDays * 86_400_000).toISOString().slice(0, 10)
+        : new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
+      const patched: VendorQuote = {
+        ...quote,
+        draftOutcomeKind: e.outcomeKind,
+        headlineTotal: e.headlineTotal || 0,
+        components: e.components,
+        depositPercent: Math.max(0, Math.min(100, e.depositPercent || 0)),
+        cancellationDays: Math.max(0, e.cancellationDays || 0),
+        validUntil,
+        callbackAt: e.callbackAt ?? undefined,
+        notes: e.notes || e.summary,
+        missingComponents: [],
+        transcriptTimestampSeconds: 0,
+        transcriptUrl: `https://elevenlabs.io/app/conversational-ai/history/${conversationId}`,
+      };
+      return finalizeVendorQuote(patched, brief);
+    } catch (error) {
+      console.error("[extract-quote] failed", error);
+      return null;
+    }
+  }
+
+  async function importByConversationId(quote: VendorQuote) {
+    const conversationId = window.prompt(
+      `Paste the ElevenLabs conversation_id for ${quote.vendorName}\n(from the ElevenLabs dashboard, starts with "conv_")`,
+      "",
+    );
+    if (!conversationId?.trim()) return;
+    setImportingId(quote.id);
+    setCaptureError(undefined);
+    const finalized = await extractQuoteFromTranscript(quote, conversationId.trim());
+    setImportingId(null);
+    if (finalized) {
+      onUpdate(finalized);
+    } else {
+      setCaptureError(`Could not extract a quote from ${conversationId.trim()}.`);
+    }
   }
 
   async function runAllCalls() {
