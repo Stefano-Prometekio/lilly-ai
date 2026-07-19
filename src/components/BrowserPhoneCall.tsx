@@ -4,6 +4,7 @@ import {
   useConversationControls,
   useConversationInput,
   useConversationStatus,
+  useRawConversation,
 } from "@elevenlabs/react";
 import { getElevenLabsConversationToken, LILLY_PUBLIC_AGENT_ID } from "../lib/elevenlabs";
 
@@ -40,6 +41,7 @@ export function BrowserPhoneCall({ call, onDeclined, onEnded }: BrowserPhoneCall
   const { startSession, endSession, getId } = useConversationControls();
   const { status } = useConversationStatus();
   const { isMuted, setMuted } = useConversationInput();
+  const rawConversation = useRawConversation();
   const [phase, setPhase] = useState<UiPhase>("ringing");
   const [seconds, setSeconds] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -57,34 +59,33 @@ export function BrowserPhoneCall({ call, onDeclined, onEnded }: BrowserPhoneCall
     }
   }, [call?.dynamicVariables.call_session_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Track ElevenLabs status → phase. Only react after the user accepted
-  // (phase === "connecting" or "live"). This avoids reacting to residual
-  // status from a previous call while the next vendor's ringing screen shows.
+  // Capture the conversation id as soon as the raw Conversation object is
+  // available. This is set by the SDK once the WebRTC handshake completes,
+  // well before the "disconnected" event fires, so we never lose the id.
   useEffect(() => {
-    if (!call) return;
-    if (phase === "connecting" && status === "connected") {
-      setPhase("live");
+    if (!rawConversation || conversationIdRef.current) return;
+    try {
+      const id = rawConversation.getId();
+      if (id) {
+        conversationIdRef.current = id;
+        console.log("[BrowserPhoneCall] captured conversation id", id);
+      }
+    } catch {
+      /* noop */
     }
-    if (phase === "live" && status === "disconnected" && !endedRef.current) {
-      endedRef.current = true;
-      setPhase("ended");
-      setTimeout(() => onEnded(conversationIdRef.current), 1200);
-    }
-  }, [status, call, phase, onEnded]);
+  }, [rawConversation, status]);
 
-  // Poll the SDK for the conversation id once live. startSession resolves
-  // before ElevenLabs assigns an id, so reading getId() immediately after
-  // startSession often returns "" and we lose the transcript link.
+  // Fallback: also poll controls.getId() while live.
   useEffect(() => {
-    if (phase !== "live") return;
-    if (conversationIdRef.current) return;
+    if (phase !== "live" || conversationIdRef.current) return;
     let cancelled = false;
     const tick = () => {
-      if (cancelled) return;
+      if (cancelled || conversationIdRef.current) return;
       try {
         const id = getId();
         if (id) {
           conversationIdRef.current = id;
+          console.log("[BrowserPhoneCall] captured conversation id (poll)", id);
           return;
         }
       } catch {
@@ -97,6 +98,30 @@ export function BrowserPhoneCall({ call, onDeclined, onEnded }: BrowserPhoneCall
       cancelled = true;
     };
   }, [phase, getId]);
+
+  // Track ElevenLabs status → phase.
+  useEffect(() => {
+    if (!call) return;
+    if (phase === "connecting" && status === "connected") {
+      setPhase("live");
+    }
+    if (phase === "live" && status === "disconnected" && !endedRef.current) {
+      endedRef.current = true;
+      // Try one last id capture before we lose the Conversation object.
+      if (!conversationIdRef.current) {
+        try {
+          const id = rawConversation?.getId?.() || getId();
+          if (id) conversationIdRef.current = id;
+        } catch {
+          /* noop */
+        }
+      }
+      setPhase("ended");
+      setTimeout(() => onEnded(conversationIdRef.current), 1200);
+    }
+  }, [status, call, phase, onEnded, rawConversation, getId]);
+
+
 
   // Live-call timer
   useEffect(() => {
