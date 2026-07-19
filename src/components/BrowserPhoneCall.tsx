@@ -132,11 +132,8 @@ export function BrowserPhoneCall({ call, onDeclined, onEnded }: BrowserPhoneCall
       } else {
         await startSession({ ...commonOptions, agentId: LILLY_PUBLIC_AGENT_ID });
       }
-      try {
-        conversationIdRef.current = getId() || null;
-      } catch {
-        conversationIdRef.current = null;
-      }
+      // conversationId is captured by the effect once phase === "live";
+      // getId() usually returns "" here.
     } catch (e) {
       setError((e as Error).message);
       setPhase("ringing");
