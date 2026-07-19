@@ -9,43 +9,28 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
 import { Route as CampaignRouteImport } from './routes/campaign'
-import { Route as ApiCallStatusRouteImport } from './routes/api.call-status'
-import { Route as ApiExtractQuoteRouteImport } from './routes/api.extract-quote'
-import { Route as ApiMapsKeyRouteImport } from './routes/api.maps-key'
-import { Route as ApiMarketResearchRouteImport } from './routes/api.market-research'
-import { Route as ApiOutboundCallRouteImport } from './routes/api.outbound-call'
+import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiParseBriefDocumentRouteImport } from './routes/api.parse-brief-document'
+import { Route as ApiOutboundCallRouteImport } from './routes/api.outbound-call'
+import { Route as ApiMarketResearchRouteImport } from './routes/api.market-research'
+import { Route as ApiMapsKeyRouteImport } from './routes/api.maps-key'
+import { Route as ApiExtractQuoteRouteImport } from './routes/api.extract-quote'
+import { Route as ApiCallStatusRouteImport } from './routes/api.call-status'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const CampaignRoute = CampaignRouteImport.update({
   id: '/campaign',
   path: '/campaign',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiCallStatusRoute = ApiCallStatusRouteImport.update({
-  id: '/api/call-status',
-  path: '/api/call-status',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiExtractQuoteRoute = ApiExtractQuoteRouteImport.update({
-  id: '/api/extract-quote',
-  path: '/api/extract-quote',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiMapsKeyRoute = ApiMapsKeyRouteImport.update({
-  id: '/api/maps-key',
-  path: '/api/maps-key',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiMarketResearchRoute = ApiMarketResearchRouteImport.update({
-  id: '/api/market-research',
-  path: '/api/market-research',
+const ApiParseBriefDocumentRoute = ApiParseBriefDocumentRouteImport.update({
+  id: '/api/parse-brief-document',
+  path: '/api/parse-brief-document',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiOutboundCallRoute = ApiOutboundCallRouteImport.update({
@@ -53,9 +38,24 @@ const ApiOutboundCallRoute = ApiOutboundCallRouteImport.update({
   path: '/api/outbound-call',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiParseBriefDocumentRoute = ApiParseBriefDocumentRouteImport.update({
-  id: '/api/parse-brief-document',
-  path: '/api/parse-brief-document',
+const ApiMarketResearchRoute = ApiMarketResearchRouteImport.update({
+  id: '/api/market-research',
+  path: '/api/market-research',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiMapsKeyRoute = ApiMapsKeyRouteImport.update({
+  id: '/api/maps-key',
+  path: '/api/maps-key',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiExtractQuoteRoute = ApiExtractQuoteRouteImport.update({
+  id: '/api/extract-quote',
+  path: '/api/extract-quote',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCallStatusRoute = ApiCallStatusRouteImport.update({
+  id: '/api/call-status',
+  path: '/api/call-status',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -136,13 +136,6 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/campaign': {
       id: '/campaign'
       path: '/campaign'
@@ -150,32 +143,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CampaignRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/call-status': {
-      id: '/api/call-status'
-      path: '/api/call-status'
-      fullPath: '/api/call-status'
-      preLoaderRoute: typeof ApiCallStatusRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/extract-quote': {
-      id: '/api/extract-quote'
-      path: '/api/extract-quote'
-      fullPath: '/api/extract-quote'
-      preLoaderRoute: typeof ApiExtractQuoteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/maps-key': {
-      id: '/api/maps-key'
-      path: '/api/maps-key'
-      fullPath: '/api/maps-key'
-      preLoaderRoute: typeof ApiMapsKeyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/market-research': {
-      id: '/api/market-research'
-      path: '/api/market-research'
-      fullPath: '/api/market-research'
-      preLoaderRoute: typeof ApiMarketResearchRouteImport
+    '/api/parse-brief-document': {
+      id: '/api/parse-brief-document'
+      path: '/api/parse-brief-document'
+      fullPath: '/api/parse-brief-document'
+      preLoaderRoute: typeof ApiParseBriefDocumentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/outbound-call': {
@@ -185,11 +164,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiOutboundCallRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/parse-brief-document': {
-      id: '/api/parse-brief-document'
-      path: '/api/parse-brief-document'
-      fullPath: '/api/parse-brief-document'
-      preLoaderRoute: typeof ApiParseBriefDocumentRouteImport
+    '/api/market-research': {
+      id: '/api/market-research'
+      path: '/api/market-research'
+      fullPath: '/api/market-research'
+      preLoaderRoute: typeof ApiMarketResearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/maps-key': {
+      id: '/api/maps-key'
+      path: '/api/maps-key'
+      fullPath: '/api/maps-key'
+      preLoaderRoute: typeof ApiMapsKeyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/extract-quote': {
+      id: '/api/extract-quote'
+      path: '/api/extract-quote'
+      fullPath: '/api/extract-quote'
+      preLoaderRoute: typeof ApiExtractQuoteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/call-status': {
+      id: '/api/call-status'
+      path: '/api/call-status'
+      fullPath: '/api/call-status'
+      preLoaderRoute: typeof ApiCallStatusRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -208,3 +208,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
