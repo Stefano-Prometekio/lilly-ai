@@ -89,8 +89,24 @@ export function LocationMap({
 }: LocationMapProps) {
   const mapElement = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string>();
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
+  const [apiKey, setApiKey] = useState<string | undefined>(
+    () => (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined) || undefined,
+  );
   const query = location.trim();
+
+  useEffect(() => {
+    if (apiKey) return;
+    let cancelled = false;
+    fetch("/api/maps-key")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("no key"))))
+      .then((data: { key?: string }) => {
+        if (!cancelled && data.key) setApiKey(data.key);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [apiKey]);
 
   useEffect(() => {
     if (!apiKey || !query || !mapElement.current) return;
@@ -178,8 +194,8 @@ export function LocationMap({
         {query && !apiKey && (
           <div className="location-map__placeholder">
             <MapPin size={28} />
-            <strong>Google Maps needs a browser API key</strong>
-            <span>Set VITE_GOOGLE_MAPS_API_KEY to enable the live radius map.</span>
+            <strong>Google Maps key not configured</strong>
+            <span>Add GOOGLE_API_KEY on the server to enable the live radius map.</span>
             <a href={mapsSearchUrl} target="_blank" rel="noreferrer">
               Open location in Google Maps <ExternalLink size={14} />
             </a>
