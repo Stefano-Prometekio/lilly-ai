@@ -121,16 +121,7 @@ export function BrowserPhoneCall({ call, onDeclined, onEnded }: BrowserPhoneCall
     }
   }, [status, call, phase, onEnded, rawConversation, getId]);
 
-      } catch {
-        /* noop */
-      }
-      window.setTimeout(tick, 300);
-    };
-    tick();
-    return () => {
-      cancelled = true;
-    };
-  }, [phase, getId]);
+
 
   // Live-call timer
   useEffect(() => {
