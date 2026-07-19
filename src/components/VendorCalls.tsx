@@ -113,6 +113,37 @@ export function VendorCalls({
   const [importingId, setImportingId] = useState<string | null>(null);
   const [importDialogQuoteId, setImportDialogQuoteId] = useState<string>();
   const [conversationIdInput, setConversationIdInput] = useState("");
+  const [bulkIds, setBulkIds] = useState<string[]>(() => quotes.map(() => ""));
+  const [bulkRunning, setBulkRunning] = useState(false);
+  const [bulkLog, setBulkLog] = useState<string[]>([]);
+
+  useEffect(() => {
+    setBulkIds((current) => quotes.map((_, index) => current[index] ?? ""));
+  }, [quotes.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function runBulkImport() {
+    setBulkRunning(true);
+    setBulkLog([]);
+    setCaptureError(undefined);
+    for (let index = 0; index < quotes.length; index += 1) {
+      const id = bulkIds[index]?.trim();
+      const quote = quotes[index];
+      if (!id || !quote) continue;
+      setBulkLog((current) => [...current, `Reading ${quote.vendorName} (${id})...`]);
+      try {
+        const finalized = await extractQuoteFromTranscript(quote, id);
+        onUpdate(finalized);
+        setBulkLog((current) => [
+          ...current,
+          `${quote.vendorName}: imported (${finalized.outcome?.kind ?? "unknown"}).`,
+        ]);
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : "extraction failed";
+        setBulkLog((current) => [...current, `${quote.vendorName}: ${detail}`]);
+      }
+    }
+    setBulkRunning(false);
+  }
 
   useEffect(
     () => () => {
