@@ -477,19 +477,8 @@ export function BriefForm({ brief, onChange, onConfirm, onLoadDemo }: BriefFormP
           </p>
         )}
         {confirmationError && <p className="error-note">{confirmationError}</p>}
-        {confirmed && brief.canonicalJson && (
-          <details className="technical-proof">
-            <summary>
-              <span>
-                <strong>View version and verification details</strong>
-                <small>
-                  Plan v{brief.version} · SHA-256 {brief.contentHash?.slice(0, 12)}…
-                </small>
-              </span>
-            </summary>
-            <pre>{JSON.stringify(JSON.parse(brief.canonicalJson), null, 2)}</pre>
-          </details>
-        )}
+
+
       </div>
     </section>
   );
