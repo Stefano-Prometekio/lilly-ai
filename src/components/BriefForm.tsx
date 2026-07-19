@@ -428,8 +428,7 @@ export function BriefForm({ brief, onChange, onConfirm, onLoadDemo }: BriefFormP
             Still needed:{" "}
             {[
               ...missingFields.map((field) => field.replaceAll(/([A-Z])/g, " $1").toLowerCase()),
-              ...(voiceReady ? [] : ["completed voice interview"]),
-              ...(documentReady ? [] : ["one imported document"]),
+              ...(voiceReady || documentReady ? [] : ["a voice interview or imported document"]),
             ].join(", ")}
             .
           </p>
