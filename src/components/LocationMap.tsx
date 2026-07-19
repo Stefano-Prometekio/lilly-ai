@@ -49,23 +49,40 @@ let mapsLoader: Promise<MapsApi> | undefined;
 const noVendors: MarketVendor[] = [];
 
 function loadGoogleMaps(apiKey: string) {
-  if (window.google?.maps) return Promise.resolve(window.google.maps);
   if (mapsLoader) return mapsLoader;
 
   mapsLoader = new Promise<MapsApi>((resolve, reject) => {
+    const finish = async () => {
+      try {
+        const g = (window as unknown as { google?: { maps: { importLibrary: (n: string) => Promise<unknown> } } }).google;
+        if (!g?.maps?.importLibrary) {
+          reject(new Error("Google Maps did not load."));
+          return;
+        }
+        await Promise.all([
+          g.maps.importLibrary("maps"),
+          g.maps.importLibrary("marker"),
+          g.maps.importLibrary("geocoding"),
+        ]);
+        resolve(window.google!.maps);
+      } catch (err) {
+        reject(err instanceof Error ? err : new Error("Google Maps failed to initialize."));
+      }
+    };
+
+    if ((window as unknown as { google?: { maps?: { importLibrary?: unknown } } }).google?.maps?.importLibrary) {
+      void finish();
+      return;
+    }
+
     const existingScript = document.querySelector<HTMLScriptElement>("script[data-lilly-maps]");
     const script = existingScript ?? document.createElement("script");
-    const handleLoad = () =>
-      window.google?.maps
-        ? resolve(window.google.maps)
-        : reject(new Error("Google Maps did not load."));
-
-    script.addEventListener("load", handleLoad, { once: true });
+    script.addEventListener("load", () => void finish(), { once: true });
     script.addEventListener("error", () => reject(new Error("Google Maps could not be loaded.")), {
       once: true,
     });
     if (!existingScript) {
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly&loading=async`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly&loading=async&libraries=geocoding,marker`;
       script.async = true;
       script.dataset.lillyMaps = "true";
       document.head.appendChild(script);

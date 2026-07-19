@@ -29,7 +29,7 @@ export function BriefForm({ brief, onChange, onConfirm, onLoadDemo }: BriefFormP
   const fieldsReady = missingFields.length === 0;
   const voiceReady = brief.intakeEvidence.voiceInterviewCompleted;
   const documentReady = brief.intakeEvidence.documents.length > 0;
-  const readyToConfirm = fieldsReady && voiceReady && documentReady;
+  const readyToConfirm = fieldsReady && (voiceReady || documentReady);
 
   useConversationClientTool("record_brief_fields", ({ fields }: RecordBriefFieldsParams) => {
     if (!fields || brief.status === "confirmed") {
@@ -428,8 +428,7 @@ export function BriefForm({ brief, onChange, onConfirm, onLoadDemo }: BriefFormP
             Still needed:{" "}
             {[
               ...missingFields.map((field) => field.replaceAll(/([A-Z])/g, " $1").toLowerCase()),
-              ...(voiceReady ? [] : ["completed voice interview"]),
-              ...(documentReady ? [] : ["one imported document"]),
+              ...(voiceReady || documentReady ? [] : ["a voice interview or imported document"]),
             ].join(", ")}
             .
           </p>
