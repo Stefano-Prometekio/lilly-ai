@@ -57,19 +57,46 @@ export function BrowserPhoneCall({ call, onDeclined, onEnded }: BrowserPhoneCall
     }
   }, [call?.dynamicVariables.call_session_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Track ElevenLabs status → phase
+  // Track ElevenLabs status → phase. Only react after the user accepted
+  // (phase === "connecting" or "live"). This avoids reacting to residual
+  // status from a previous call while the next vendor's ringing screen shows.
   useEffect(() => {
     if (!call) return;
-    if (status === "connected" && phase !== "live") {
+    if (phase === "connecting" && status === "connected") {
       setPhase("live");
     }
     if (phase === "live" && status === "disconnected" && !endedRef.current) {
       endedRef.current = true;
       setPhase("ended");
-      // small delay so user sees "Call ended"
       setTimeout(() => onEnded(conversationIdRef.current), 1200);
     }
   }, [status, call, phase, onEnded]);
+
+  // Poll the SDK for the conversation id once live. startSession resolves
+  // before ElevenLabs assigns an id, so reading getId() immediately after
+  // startSession often returns "" and we lose the transcript link.
+  useEffect(() => {
+    if (phase !== "live") return;
+    if (conversationIdRef.current) return;
+    let cancelled = false;
+    const tick = () => {
+      if (cancelled) return;
+      try {
+        const id = getId();
+        if (id) {
+          conversationIdRef.current = id;
+          return;
+        }
+      } catch {
+        /* noop */
+      }
+      window.setTimeout(tick, 300);
+    };
+    tick();
+    return () => {
+      cancelled = true;
+    };
+  }, [phase, getId]);
 
   // Live-call timer
   useEffect(() => {
