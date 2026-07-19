@@ -16,7 +16,7 @@ export interface BrowserCallRequest {
 interface BrowserPhoneCallProps {
   call: BrowserCallRequest | null;
   onDeclined: () => void;
-  onEnded: () => void;
+  onEnded: (conversationId: string | null) => void;
 }
 
 type UiPhase = "ringing" | "connecting" | "live" | "ended";
@@ -37,18 +37,20 @@ function describeCanonicalScope(dynamicVariables: Record<string, string | number
 }
 
 export function BrowserPhoneCall({ call, onDeclined, onEnded }: BrowserPhoneCallProps) {
-  const { startSession, endSession } = useConversationControls();
+  const { startSession, endSession, getId } = useConversationControls();
   const { status } = useConversationStatus();
   const { isMuted, setMuted } = useConversationInput();
   const [phase, setPhase] = useState<UiPhase>("ringing");
   const [seconds, setSeconds] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const endedRef = useRef(false);
+  const conversationIdRef = useRef<string | null>(null);
 
   // Reset when a new call comes in
   useEffect(() => {
     if (call) {
       endedRef.current = false;
+      conversationIdRef.current = null;
       setPhase("ringing");
       setSeconds(0);
       setError(null);
