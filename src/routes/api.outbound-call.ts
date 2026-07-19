@@ -47,7 +47,7 @@ export const Route = createFileRoute("/api/outbound-call")({
 
         const vendorName = dynamicVariables.vendor_name || "the catering team";
         const eventSummary = dynamicVariables.event_summary || "an upcoming event";
-        const firstMessage = `Hi, this is Lilly, an AI procurement assistant calling on behalf of an event buyer. Am I reaching ${vendorName}? I'm gathering a catering quote for ${eventSummary} and hoping you have a couple of minutes to walk through it.`;
+        const firstMessage = `Hi, this is Lilly, an AI event planning assistant helping out with catering for an upcoming event. Am I reaching ${vendorName}? I'm putting together a quote for ${eventSummary} and hoping you have a couple of minutes to walk through it.`;
 
         const payload = {
           agent_id: agentId,
