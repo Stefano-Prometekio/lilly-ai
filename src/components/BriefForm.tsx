@@ -477,8 +477,6 @@ export function BriefForm({ brief, onChange, onConfirm, onLoadDemo }: BriefFormP
           </p>
         )}
         {confirmationError && <p className="error-note">{confirmationError}</p>}
-
-
       </div>
     </section>
   );
