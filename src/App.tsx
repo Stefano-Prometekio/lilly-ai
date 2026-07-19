@@ -58,8 +58,7 @@ function App() {
   const [marketReference, setMarketReference] = useState<MarketReference>(emptyMarketReference);
   const [quotes, setQuotes] = useState<VendorQuote[]>(initialQuotes);
   const [activeQuoteId, setActiveQuoteId] = useState<string>();
-  const [finalistId, setFinalistId] = useState<string>();
-  const [negotiationPlan, setNegotiationPlan] = useState<NegotiationPlan>();
+  const [finalistIds, setFinalistIds] = useState<string[]>([]);
   const [researchError, setResearchError] = useState<string>();
   const [researchProgress, setResearchProgress] = useState<MarketResearchProgress>();
   const [demoMode, setDemoMode] = useState(false);
@@ -71,12 +70,25 @@ function App() {
       ),
     [brief.absoluteMaximum, brief.contentHash, marketReference, quotes],
   );
-  const finalist = normalizedQuotes.find((quote) => quote.id === finalistId);
+  const finalists = finalistIds
+    .map((id) => normalizedQuotes.find((quote) => quote.id === id))
+    .filter((quote): quote is NonNullable<typeof quote> => Boolean(quote));
+
+  // Per-finalist plan: cheapest OTHER selected finalist as leverage.
+  const negotiationPlans = useMemo(() => {
+    const map: Record<string, NegotiationPlan | undefined> = {};
+    for (const f of finalists) {
+      const peers = finalists.filter((other) => other.id !== f.id);
+      map[f.id] = buildNegotiationPlan(f, peers.length ? peers : normalizedQuotes, brief);
+    }
+    return map;
+  }, [finalists, normalizedQuotes, brief]);
+
   const eligibleQuotes = normalizedQuotes.filter((quote) => quote.eligibleForRanking);
   const allCallsStructured = quotes.length >= 3 && quotes.every((quote) => Boolean(quote.outcome));
-  const negotiationComplete = quotes.some(
-    (quote) => quote.status === "negotiated" && Boolean(quote.negotiation?.changedTerms),
-  );
+  const negotiationComplete =
+    finalistIds.length > 0 &&
+    finalistIds.every((id) => quotes.find((q) => q.id === id)?.status === "negotiated");
   const stepIndex = steps.findIndex((item) => item.id === step);
   const activeStep = steps[stepIndex];
 
@@ -84,7 +96,7 @@ function App() {
     intake: brief.status === "confirmed" && Boolean(brief.contentHash),
     research: marketReference.status === "complete",
     calls: allCallsStructured,
-    compare: Boolean(finalistId),
+    compare: finalistIds.length >= 2,
     negotiate: negotiationComplete,
     recommend: negotiationComplete && allCallsStructured,
   };
@@ -94,7 +106,7 @@ function App() {
     research: stepComplete.intake,
     calls: stepComplete.intake && stepComplete.research,
     compare: stepComplete.calls,
-    negotiate: stepComplete.calls && eligibleQuotes.length >= 2 && Boolean(finalistId),
+    negotiate: stepComplete.calls && eligibleQuotes.length >= 2 && finalistIds.length >= 2,
     recommend: stepComplete.negotiate && stepComplete.calls,
   };
 
@@ -108,8 +120,7 @@ function App() {
     if (invalidatesCampaign) {
       setMarketReference(emptyMarketReference);
       setQuotes(initialQuotes);
-      setFinalistId(undefined);
-      setNegotiationPlan(undefined);
+      setFinalistIds([]);
       setActiveQuoteId(undefined);
       setDemoMode(false);
     }
@@ -124,8 +135,7 @@ function App() {
     setBrief(demoBrief);
     setMarketReference(demoMarketReference);
     setQuotes(createDemoQuotes(demoBrief));
-    setFinalistId(undefined);
-    setNegotiationPlan(undefined);
+    setFinalistIds([]);
     setActiveQuoteId(undefined);
     setDemoMode(true);
     setStep("intake");
@@ -273,10 +283,14 @@ function App() {
             brief={brief}
             reference={marketReference}
             quotes={normalizedQuotes}
-            onSelectFinalist={(id) => {
-              const selectedFinalist = normalizedQuotes.find((quote) => quote.id === id);
-              setFinalistId(id);
-              setNegotiationPlan(buildNegotiationPlan(selectedFinalist, normalizedQuotes, brief));
+            selectedIds={finalistIds}
+            onToggleSelect={(id) =>
+              setFinalistIds((current) =>
+                current.includes(id) ? current.filter((x) => x !== id) : [...current, id],
+              )
+            }
+            onProceed={(ids) => {
+              setFinalistIds(ids);
               setStep("negotiate");
             }}
           />
@@ -284,9 +298,10 @@ function App() {
         {step === "negotiate" && (
           <Negotiation
             brief={brief}
-            finalist={finalist}
-            plan={negotiationPlan}
+            finalists={finalists}
+            plans={negotiationPlans}
             onUpdate={updateQuote}
+            onAllDone={() => setStep("recommend")}
           />
         )}
         {step === "recommend" && <Recommendation brief={brief} quotes={normalizedQuotes} />}

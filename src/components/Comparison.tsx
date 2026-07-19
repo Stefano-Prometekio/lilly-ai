@@ -6,22 +6,32 @@ interface ComparisonProps {
   brief: CateringBrief;
   reference: MarketReference;
   quotes: NormalizedQuote[];
-  onSelectFinalist: (id: string) => void;
+  selectedIds: string[];
+  onToggleSelect: (id: string) => void;
+  onProceed: (ids: string[]) => void;
 }
 
-export function Comparison({ brief, reference, quotes, onSelectFinalist }: ComparisonProps) {
+export function Comparison({
+  brief,
+  reference,
+  quotes,
+  selectedIds,
+  onToggleSelect,
+  onProceed,
+}: ComparisonProps) {
   const ranked = quotes
     .filter((quote) => quote.eligibleForRanking)
     .sort((left, right) => right.score - left.score);
   const nonRanked = quotes.filter((quote) => !quote.eligibleForRanking);
   const hasReference = reference.status === "complete" && reference.medianTotal > 0;
+  const canProceed = selectedIds.length >= 2;
 
   return (
     <section className="panel comparison-panel">
       <div className="section-heading">
         <div>
           <span className="kicker">Offer comparison</span>
-          <h2>See value, price, and confidence side by side</h2>
+          <h2>Pick the vendors you want to push for a better offer</h2>
         </div>
         <div className="benchmark-chip">
           <CircleDollarSign size={16} />
@@ -32,70 +42,19 @@ export function Comparison({ brief, reference, quotes, onSelectFinalist }: Compa
         </div>
       </div>
       <p className="panel-intro">
-        Lilly compares only complete, supported offers for the same event brief. Any missing or
-        uncertain cost stays visible rather than being treated as free.
+        Select two or more vendors below. Lilly will call each one back with a counter-offer that
+        uses the best selected alternative as leverage, then bring you the improved results.
       </p>
 
       {ranked.length > 0 ? (
-        <>
-          <div className="comparison-table" role="table" aria-label="Eligible vendor comparison">
-            <div className="comparison-row comparison-row--head" role="row">
-              <span>Vendor</span>
-              <span>Quoted</span>
-              <span>Comparable total</span>
-              <span>vs local range</span>
-              <span>Confidence</span>
-              <span>Score</span>
-              <span></span>
-            </div>
-            {ranked.map((quote, index) => (
-              <div className="comparison-row" role="row" key={quote.id}>
-                <div className="vendor-cell">
-                  {index === 0 ? (
-                    <Trophy size={18} className="gold-icon" />
-                  ) : (
-                    <span className="rank-number">#{index + 1}</span>
-                  )}
-                  <div>
-                    <strong>{quote.vendorName}</strong>
-                    <span>{quote.outcome?.kind.replaceAll("_", " ")}</span>
-                  </div>
-                </div>
-                <span>{formatMoney(quote.headlineTotal, brief.currency)}</span>
-                <strong>{formatMoney(quote.normalizedTotal, brief.currency)}</strong>
-                <span
-                  className={
-                    quote.suspiciousLow
-                      ? "danger-text"
-                      : quote.varianceFromMarket < 0
-                        ? "success-text"
-                        : ""
-                  }
-                >
-                  {quote.varianceFromMarket > 0 ? "+" : ""}
-                  {Math.round(quote.varianceFromMarket * 100)}%
-                  {quote.suspiciousLow && <AlertTriangle size={15} />}
-                </span>
-                <span>{Math.round(quote.evidenceConfidence * 100)}%</span>
-                <strong>{quote.score}</strong>
-                <button
-                  className="selection-action"
-                  type="button"
-                  aria-label={`Select ${quote.vendorName} for negotiation`}
-                  onClick={() => onSelectFinalist(quote.id)}
-                >
-                  <span>Select</span>
-                  <ArrowRight size={17} />
-                </button>
-              </div>
-            ))}
-          </div>
-
-          <div className="comparison-cards" aria-label="Vendor comparison cards">
-            {ranked.map((quote, index) => (
+        <div className="comparison-cards" aria-label="Vendor comparison cards">
+          {ranked.map((quote, index) => {
+            const isSelected = selectedIds.includes(quote.id);
+            return (
               <article
                 className={
-                  index === 0 ? "comparison-card comparison-card--leader" : "comparison-card"
+                  (index === 0 ? "comparison-card comparison-card--leader" : "comparison-card") +
+                  (isSelected ? " comparison-card--selected" : "")
                 }
                 key={quote.id}
               >
@@ -128,22 +87,40 @@ export function Comparison({ brief, reference, quotes, onSelectFinalist }: Compa
                     <strong>{formatMoney(quote.headlineTotal, brief.currency)}</strong>
                   </span>
                 </div>
-                <button
-                  className="button button--primary button--wide"
-                  type="button"
-                  onClick={() => onSelectFinalist(quote.id)}
-                >
-                  Improve this offer <ArrowRight size={17} />
-                </button>
+                <label className="comparison-card__select">
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => onToggleSelect(quote.id)}
+                  />
+                  <span>{isSelected ? "Selected for negotiation" : "Include in negotiation"}</span>
+                </label>
               </article>
-            ))}
-          </div>
-        </>
+            );
+          })}
+        </div>
       ) : (
         <div className="empty-state">
           <AlertTriangle size={38} />
           <strong>No offer is ready to compare</strong>
           <span>Complete the market scan and capture each vendor outcome first.</span>
+        </div>
+      )}
+
+      {ranked.length > 0 && (
+        <div className="comparison-actions">
+          <span>
+            {selectedIds.length} selected {selectedIds.length === 1 ? "vendor" : "vendors"}
+            {selectedIds.length < 2 && " · pick at least two to start the counter-offer round"}
+          </span>
+          <button
+            className="button button--primary"
+            type="button"
+            disabled={!canProceed}
+            onClick={() => onProceed(selectedIds)}
+          >
+            Improve selected offers <ArrowRight size={17} />
+          </button>
         </div>
       )}
 
