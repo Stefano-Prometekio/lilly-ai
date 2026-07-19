@@ -96,7 +96,7 @@ function App() {
           <span className="brand-mark">L</span>
           <span>
             <strong>Lilly</strong>
-            <small>Your procurement partner</small>
+            <small>Your event planning assistant</small>
           </span>
         </button>
         <div className="campaign-chip">
