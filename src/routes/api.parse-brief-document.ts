@@ -121,10 +121,10 @@ export const Route = createFileRoute("/api/parse-brief-document")({
     handlers: {
       POST: async ({ request }) => {
         try {
-          const apiKey = process.env.LOVABLE_API_KEY;
+          const apiKey = process.env.OPENAI_API_KEY;
           if (!apiKey) {
             return new Response(
-              JSON.stringify({ error: "LOVABLE_API_KEY is not configured on the server." }),
+              JSON.stringify({ error: "OPENAI_API_KEY is not configured on the server." }),
               { status: 500, headers: { "Content-Type": "application/json" } },
             );
           }
@@ -142,7 +142,7 @@ export const Route = createFileRoute("/api/parse-brief-document")({
 
           if (name.endsWith(".pdf") || file.type === "application/pdf") {
             const base64 = Buffer.from(buffer).toString("base64");
-            fields = await extractFieldsWithGateway({
+            fields = await extractFieldsWithOpenAI({
               apiKey,
               fileName: file.name,
               pdfBase64: base64,
@@ -150,14 +150,14 @@ export const Route = createFileRoute("/api/parse-brief-document")({
             });
           } else if (name.endsWith(".docx")) {
             const text = await extractTextFromDocx(buffer);
-            fields = await extractFieldsWithGateway({
+            fields = await extractFieldsWithOpenAI({
               apiKey,
               fileName: file.name,
               text,
             });
           } else if (name.endsWith(".pptx")) {
             const text = await extractTextFromPptx(buffer);
-            fields = await extractFieldsWithGateway({
+            fields = await extractFieldsWithOpenAI({
               apiKey,
               fileName: file.name,
               text,
