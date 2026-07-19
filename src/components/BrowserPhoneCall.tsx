@@ -67,7 +67,7 @@ export function BrowserPhoneCall({ call, onDeclined, onEnded }: BrowserPhoneCall
       endedRef.current = true;
       setPhase("ended");
       // small delay so user sees "Call ended"
-      setTimeout(() => onEnded(), 1200);
+      setTimeout(() => onEnded(conversationIdRef.current), 1200);
     }
   }, [status, call, phase, onEnded]);
 
@@ -105,6 +105,11 @@ export function BrowserPhoneCall({ call, onDeclined, onEnded }: BrowserPhoneCall
       } else {
         await startSession({ ...commonOptions, agentId: LILLY_PUBLIC_AGENT_ID });
       }
+      try {
+        conversationIdRef.current = getId() || null;
+      } catch {
+        conversationIdRef.current = null;
+      }
     } catch (e) {
       setError((e as Error).message);
       setPhase("ringing");
@@ -119,7 +124,7 @@ export function BrowserPhoneCall({ call, onDeclined, onEnded }: BrowserPhoneCall
       /* noop */
     }
     setPhase("ended");
-    setTimeout(() => onEnded(), 600);
+    setTimeout(() => onEnded(conversationIdRef.current), 600);
   }
 
   function handleDecline() {
