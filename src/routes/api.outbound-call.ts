@@ -67,7 +67,7 @@ export const Route = createFileRoute("/api/outbound-call")({
         } catch {
           return Response.json({ error: "canonical_brief_json is invalid JSON." }, { status: 400 });
         }
-        const firstMessage = `Hi, this is Lilly, an AI procurement assistant calling on behalf of an event buyer. Am I reaching ${vendorName}? I'm gathering a catering quote for ${eventSummary} and hoping you have a couple of minutes to walk through it.`;
+        const firstMessage = `Hi, I'm Lilly, an AI event planning assistant. I'm helping a buyer source catering options for ${eventSummary}. Am I reaching ${vendorName}, and do you have a couple of minutes to walk through it?`;
 
         const payload = {
           agent_id: agentId,

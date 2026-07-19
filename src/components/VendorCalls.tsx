@@ -159,10 +159,14 @@ export function VendorCalls({
         };
       };
       const e = payload.extracted;
-      const validUntil =
-        e.validUntilDays > 0
-          ? new Date(Date.now() + e.validUntilDays * 86_400_000).toISOString().slice(0, 10)
-          : new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
+      const validUntil = e.validUntilDays > 0
+        ? new Date(Date.now() + e.validUntilDays * 86_400_000).toISOString().slice(0, 10)
+        : new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
+      const callbackAt =
+        e.callbackAt ||
+        (e.outcomeKind === "callback_commitment"
+          ? new Date(Date.now() + 2 * 86_400_000).toISOString()
+          : undefined);
       const patched: VendorQuote = {
         ...quote,
         draftOutcomeKind: e.outcomeKind,
@@ -171,15 +175,28 @@ export function VendorCalls({
         depositPercent: Math.max(0, Math.min(100, e.depositPercent || 0)),
         cancellationDays: Math.max(0, e.cancellationDays || 0),
         validUntil,
-        callbackAt: e.callbackAt ?? undefined,
-        notes: e.notes || e.summary,
+        callbackAt,
+        notes: e.notes || e.summary || `Call with ${quote.vendorName}.`,
         missingComponents: [],
         transcriptTimestampSeconds: 0,
         transcriptUrl: `https://elevenlabs.io/app/conversational-ai/history/${conversationId}`,
       };
-      return finalizeVendorQuote(patched, brief);
+      try {
+        return finalizeVendorQuote(patched, brief);
+      } catch (err) {
+        console.error("[extract-quote] finalize failed", err, patched);
+        // Fall back to documented_decline so we still record something.
+        return finalizeVendorQuote(
+          {
+            ...patched,
+            draftOutcomeKind: "documented_decline",
+            notes: `${patched.notes} (Auto-extracted but incomplete: ${(err as Error).message})`,
+          },
+          brief,
+        );
+      }
     } catch (error) {
-      console.error("[extract-quote] failed", error);
+      console.error("[extract-quote] request failed", error);
       return null;
     }
   }

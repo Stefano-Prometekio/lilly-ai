@@ -4,6 +4,7 @@ import {
   useConversationControls,
   useConversationInput,
   useConversationStatus,
+  useRawConversation,
 } from "@elevenlabs/react";
 import { getElevenLabsConversationToken, LILLY_PUBLIC_AGENT_ID } from "../lib/elevenlabs";
 
@@ -40,6 +41,7 @@ export function BrowserPhoneCall({ call, onDeclined, onEnded }: BrowserPhoneCall
   const { startSession, endSession, getId } = useConversationControls();
   const { status } = useConversationStatus();
   const { isMuted, setMuted } = useConversationInput();
+  const rawConversation = useRawConversation();
   const [phase, setPhase] = useState<UiPhase>("ringing");
   const [seconds, setSeconds] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -57,19 +59,69 @@ export function BrowserPhoneCall({ call, onDeclined, onEnded }: BrowserPhoneCall
     }
   }, [call?.dynamicVariables.call_session_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Track ElevenLabs status → phase
+  // Capture the conversation id as soon as the raw Conversation object is
+  // available. This is set by the SDK once the WebRTC handshake completes,
+  // well before the "disconnected" event fires, so we never lose the id.
+  useEffect(() => {
+    if (!rawConversation || conversationIdRef.current) return;
+    try {
+      const id = rawConversation.getId();
+      if (id) {
+        conversationIdRef.current = id;
+        console.log("[BrowserPhoneCall] captured conversation id", id);
+      }
+    } catch {
+      /* noop */
+    }
+  }, [rawConversation, status]);
+
+  // Fallback: also poll controls.getId() while live.
+  useEffect(() => {
+    if (phase !== "live" || conversationIdRef.current) return;
+    let cancelled = false;
+    const tick = () => {
+      if (cancelled || conversationIdRef.current) return;
+      try {
+        const id = getId();
+        if (id) {
+          conversationIdRef.current = id;
+          console.log("[BrowserPhoneCall] captured conversation id (poll)", id);
+          return;
+        }
+      } catch {
+        /* noop */
+      }
+      window.setTimeout(tick, 300);
+    };
+    tick();
+    return () => {
+      cancelled = true;
+    };
+  }, [phase, getId]);
+
+  // Track ElevenLabs status → phase.
   useEffect(() => {
     if (!call) return;
-    if (status === "connected" && phase !== "live") {
+    if (phase === "connecting" && status === "connected") {
       setPhase("live");
     }
     if (phase === "live" && status === "disconnected" && !endedRef.current) {
       endedRef.current = true;
+      // Try one last id capture before we lose the Conversation object.
+      if (!conversationIdRef.current) {
+        try {
+          const id = rawConversation?.getId?.() || getId();
+          if (id) conversationIdRef.current = id;
+        } catch {
+          /* noop */
+        }
+      }
       setPhase("ended");
-      // small delay so user sees "Call ended"
       setTimeout(() => onEnded(conversationIdRef.current), 1200);
     }
-  }, [status, call, phase, onEnded]);
+  }, [status, call, phase, onEnded, rawConversation, getId]);
+
+
 
   // Live-call timer
   useEffect(() => {
@@ -89,7 +141,7 @@ export function BrowserPhoneCall({ call, onDeclined, onEnded }: BrowserPhoneCall
       const token = await getElevenLabsConversationToken(LILLY_PUBLIC_AGENT_ID, participantName);
       const vendorName = String(call.dynamicVariables.vendor_name ?? call.vendorName);
       const eventSummary = describeCanonicalScope(call.dynamicVariables);
-      const firstMessage = `Hi, this is Lilly, an AI event sourcing assistant calling on behalf of an event buyer. Am I reaching ${vendorName}? I'm gathering a catering quote for ${eventSummary} and hoping you have a couple of minutes to walk through it.`;
+      const firstMessage = `Hi, I'm Lilly, an AI event planning assistant. I'm helping a buyer source catering options for ${eventSummary}. Am I reaching ${vendorName}, and do you have a couple of minutes to walk through it?`;
       const commonOptions = {
         connectionType: "webrtc" as const,
         dynamicVariables: call.dynamicVariables,
@@ -105,11 +157,8 @@ export function BrowserPhoneCall({ call, onDeclined, onEnded }: BrowserPhoneCall
       } else {
         await startSession({ ...commonOptions, agentId: LILLY_PUBLIC_AGENT_ID });
       }
-      try {
-        conversationIdRef.current = getId() || null;
-      } catch {
-        conversationIdRef.current = null;
-      }
+      // conversationId is captured by the effect once phase === "live";
+      // getId() usually returns "" here.
     } catch (e) {
       setError((e as Error).message);
       setPhase("ringing");
