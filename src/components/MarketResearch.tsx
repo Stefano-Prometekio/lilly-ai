@@ -11,6 +11,7 @@ import {
 import type { CateringBrief, MarketReference } from "../domain";
 import { marketResearchStages, type MarketResearchProgress } from "../lib/market-research-progress";
 import { formatMoney } from "../lib/procurement";
+import { LocationMap } from "./LocationMap";
 
 interface MarketResearchProps {
   brief: CateringBrief;
@@ -174,6 +175,41 @@ export function MarketResearch({
                   <ExternalLink size={16} />
                 </a>
               ))}
+            </div>
+            <div className="vendor-map-section">
+              <div className="map-section-heading">
+                <div>
+                  <span className="kicker">Supplier landscape</span>
+                  <h3>Event area and discovered vendors</h3>
+                </div>
+                <span>{reference.vendors.length} vendors found</span>
+              </div>
+              <LocationMap
+                location={brief.venueAddress.trim() || brief.city}
+                radiusKm={brief.radiusKm}
+                vendors={reference.vendors}
+              />
+              <ol className="map-vendor-list">
+                {reference.vendors.map((vendor, index) => (
+                  <li key={vendor.id}>
+                    <span className="map-vendor-list__index">{index + 1}</span>
+                    <div>
+                      <strong>{vendor.name}</strong>
+                      <span>{vendor.address || "Address unavailable"}</span>
+                    </div>
+                    {vendor.mapsUrl && (
+                      <a
+                        href={vendor.mapsUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label={`Open ${vendor.name} in Google Maps`}
+                      >
+                        <ExternalLink size={15} />
+                      </a>
+                    )}
+                  </li>
+                ))}
+              </ol>
             </div>
           </>
         ) : (

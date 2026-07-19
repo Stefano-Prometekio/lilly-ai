@@ -40,6 +40,8 @@ export interface MarketVendor {
   mapsUrl?: string;
   rating?: number;
   reviewCount?: number;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface MarketReference {
