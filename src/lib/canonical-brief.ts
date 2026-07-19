@@ -123,12 +123,6 @@ export async function confirmCanonicalBrief(brief: CateringBrief): Promise<Cater
   if (missingFields.length) {
     throw new Error(`Complete the brief before confirmation: ${missingFields.join(", ")}.`);
   }
-  if (!brief.intakeEvidence.voiceInterviewCompleted) {
-    throw new Error("Complete the ElevenLabs voice interview before confirmation.");
-  }
-  if (!brief.intakeEvidence.documents.length) {
-    throw new Error("Import at least one document before confirmation.");
-  }
 
   const canonicalJson = serializeCanonicalBrief(brief);
   const contentHash = await hashCanonicalBrief(canonicalJson);

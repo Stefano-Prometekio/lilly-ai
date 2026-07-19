@@ -35,6 +35,7 @@ interface MapsApi {
 declare global {
   interface Window {
     google?: { maps: MapsApi };
+    __lillyGoogleMapsReady?: () => void;
   }
 }
 
@@ -69,24 +70,26 @@ function loadGoogleMaps(apiKey: string) {
         reject(err instanceof Error ? err : new Error("Google Maps failed to initialize."));
       }
     };
+    const fail = (error: Error) => {
+      mapsLoader = undefined;
+      reject(error);
+    };
 
     if ((window as unknown as { google?: { maps?: { importLibrary?: unknown } } }).google?.maps?.importLibrary) {
       void finish();
       return;
     }
 
-    const existingScript = document.querySelector<HTMLScriptElement>("script[data-lilly-maps]");
-    const script = existingScript ?? document.createElement("script");
-    script.addEventListener("load", () => void finish(), { once: true });
-    script.addEventListener("error", () => reject(new Error("Google Maps could not be loaded.")), {
+    window.__lillyGoogleMapsReady = () => void finish();
+    document.querySelector<HTMLScriptElement>("script[data-lilly-maps]")?.remove();
+    const script = document.createElement("script");
+    script.addEventListener("error", () => fail(new Error("Google Maps could not be loaded.")), {
       once: true,
     });
-    if (!existingScript) {
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly&loading=async&libraries=geocoding,marker`;
-      script.async = true;
-      script.dataset.lillyMaps = "true";
-      document.head.appendChild(script);
-    }
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly&loading=async&callback=__lillyGoogleMapsReady`;
+    script.async = true;
+    script.dataset.lillyMaps = "true";
+    document.head.appendChild(script);
   });
   return mapsLoader;
 }

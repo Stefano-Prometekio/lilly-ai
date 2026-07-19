@@ -41,13 +41,13 @@ describe("canonical brief confirmation", () => {
     expect(confirmed.contentHash).toMatch(/^[a-f0-9]{64}$/);
   });
 
-  it("requires both voice and document evidence", async () => {
+  it("allows confirmation without voice or document evidence when fields are complete", async () => {
     await expect(
       confirmCanonicalBrief({
         ...completeBrief,
         intakeEvidence: { voiceInterviewCompleted: false, documents: [] },
       }),
-    ).rejects.toThrow(/voice interview/i);
+    ).resolves.toMatchObject({ status: "confirmed" });
   });
 
   it("produces a valid SHA-256 hash when Web Crypto is unavailable", async () => {
