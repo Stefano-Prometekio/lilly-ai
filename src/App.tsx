@@ -9,7 +9,13 @@ import {
   Mic2,
   Sparkles,
 } from "lucide-react";
-import type { CampaignStep, CateringBrief, MarketReference, VendorQuote } from "./domain";
+import type {
+  CampaignStep,
+  CateringBrief,
+  MarketReference,
+  NegotiationPlan,
+  VendorQuote,
+} from "./domain";
 import { BriefForm } from "./components/BriefForm";
 import { MarketResearch } from "./components/MarketResearch";
 import { VendorCalls } from "./components/VendorCalls";
@@ -17,6 +23,7 @@ import { Comparison } from "./components/Comparison";
 import { Negotiation } from "./components/Negotiation";
 import { Recommendation } from "./components/Recommendation";
 import {
+  buildNegotiationPlan,
   emptyMarketReference,
   initialBrief,
   initialQuotes,
@@ -24,6 +31,8 @@ import {
 } from "./lib/procurement";
 import { researchMarket } from "./lib/market-research";
 import type { MarketResearchProgress } from "./lib/market-research-progress";
+import { confirmCanonicalBrief } from "./lib/canonical-brief";
+import { createDemoBrief, createDemoQuotes, demoMarketReference } from "./lib/demo-scenario";
 
 const steps: Array<{ id: CampaignStep; label: string; icon: typeof Mic2 }> = [
   { id: "intake", label: "Intake", icon: Mic2 },
@@ -41,21 +50,75 @@ function App() {
   const [quotes, setQuotes] = useState<VendorQuote[]>(initialQuotes);
   const [activeQuoteId, setActiveQuoteId] = useState<string>();
   const [finalistId, setFinalistId] = useState<string>();
+  const [negotiationPlan, setNegotiationPlan] = useState<NegotiationPlan>();
   const [researchError, setResearchError] = useState<string>();
   const [researchProgress, setResearchProgress] = useState<MarketResearchProgress>();
+  const [demoMode, setDemoMode] = useState(false);
 
   const normalizedQuotes = useMemo(
-    () => quotes.map((quote) => normalizeQuote(quote, marketReference, brief.absoluteMaximum)),
-    [brief.absoluteMaximum, marketReference, quotes],
+    () =>
+      quotes.map((quote) =>
+        normalizeQuote(quote, marketReference, brief.absoluteMaximum, brief.contentHash),
+      ),
+    [brief.absoluteMaximum, brief.contentHash, marketReference, quotes],
   );
   const finalist = normalizedQuotes.find((quote) => quote.id === finalistId);
-  const bestAlternative = normalizedQuotes
-    .filter((quote) => quote.id !== finalistId)
-    .sort((a, b) => b.score - a.score)[0];
+  const eligibleQuotes = normalizedQuotes.filter((quote) => quote.eligibleForRanking);
+  const allCallsStructured = quotes.length >= 3 && quotes.every((quote) => Boolean(quote.outcome));
+  const negotiationComplete = quotes.some(
+    (quote) => quote.status === "negotiated" && Boolean(quote.negotiation?.changedTerms),
+  );
   const stepIndex = steps.findIndex((item) => item.id === step);
+
+  const stepComplete: Record<CampaignStep, boolean> = {
+    intake: brief.status === "confirmed" && Boolean(brief.contentHash),
+    research: marketReference.status === "complete",
+    calls: allCallsStructured,
+    compare: Boolean(finalistId),
+    negotiate: negotiationComplete,
+    recommend: negotiationComplete && allCallsStructured,
+  };
+
+  const stepUnlocked: Record<CampaignStep, boolean> = {
+    intake: true,
+    research: stepComplete.intake,
+    calls: stepComplete.intake && stepComplete.research,
+    compare: stepComplete.calls,
+    negotiate: stepComplete.calls && eligibleQuotes.length >= 2 && Boolean(finalistId),
+    recommend: stepComplete.negotiate && stepComplete.calls,
+  };
 
   function updateQuote(updated: VendorQuote) {
     setQuotes((current) => current.map((quote) => (quote.id === updated.id ? updated : quote)));
+  }
+
+  function updateBrief(updated: CateringBrief) {
+    const invalidatesCampaign = brief.status === "confirmed" && updated.status === "draft";
+    setBrief(updated);
+    if (invalidatesCampaign) {
+      setMarketReference(emptyMarketReference);
+      setQuotes(initialQuotes);
+      setFinalistId(undefined);
+      setNegotiationPlan(undefined);
+      setActiveQuoteId(undefined);
+      setDemoMode(false);
+    }
+  }
+
+  async function confirmBrief() {
+    setBrief(await confirmCanonicalBrief(brief));
+  }
+
+  async function loadDemoScenario() {
+    const demoBrief = await createDemoBrief();
+    setBrief(demoBrief);
+    setMarketReference(demoMarketReference);
+    setQuotes(createDemoQuotes(demoBrief));
+    setFinalistId(undefined);
+    setNegotiationPlan(undefined);
+    setActiveQuoteId(undefined);
+    setDemoMode(true);
+    setStep("intake");
   }
 
   async function runResearch() {
@@ -86,7 +149,8 @@ function App() {
   }
 
   const nextStep = () => {
-    if (stepIndex < steps.length - 1) setStep(steps[stepIndex + 1].id);
+    const next = steps[stepIndex + 1];
+    if (next && stepUnlocked[next.id]) setStep(next.id);
   };
 
   return (
@@ -112,12 +176,14 @@ function App() {
         <nav>
           {steps.map((item, index) => {
             const Icon = item.icon;
-            const complete = index < stepIndex;
+            const complete = stepComplete[item.id];
+            const unlocked = stepUnlocked[item.id];
             return (
               <button
                 className={item.id === step ? "nav-item nav-item--active" : "nav-item"}
                 type="button"
-                onClick={() => setStep(item.id)}
+                onClick={() => unlocked && setStep(item.id)}
+                disabled={!unlocked}
                 key={item.id}
               >
                 <span className="nav-icon">
@@ -133,7 +199,7 @@ function App() {
         </nav>
         <div className="sidebar-footer">
           <strong>Hackathon demo</strong>
-          <span>Browser voice mode</span>
+          <span>{demoMode ? "Transparent scripted dry run" : "Browser voice mode"}</span>
         </div>
       </aside>
 
@@ -141,8 +207,9 @@ function App() {
         {step === "intake" && (
           <BriefForm
             brief={brief}
-            onChange={setBrief}
-            onConfirm={() => setBrief({ ...brief, status: "confirmed" })}
+            onChange={updateBrief}
+            onConfirm={confirmBrief}
+            onLoadDemo={loadDemoScenario}
           />
         )}
         {step === "research" && (
@@ -170,7 +237,9 @@ function App() {
             reference={marketReference}
             quotes={normalizedQuotes}
             onSelectFinalist={(id) => {
+              const selectedFinalist = normalizedQuotes.find((quote) => quote.id === id);
               setFinalistId(id);
+              setNegotiationPlan(buildNegotiationPlan(selectedFinalist, normalizedQuotes, brief));
               setStep("negotiate");
             }}
           />
@@ -179,7 +248,7 @@ function App() {
           <Negotiation
             brief={brief}
             finalist={finalist}
-            bestAlternative={bestAlternative}
+            plan={negotiationPlan}
             onUpdate={updateQuote}
           />
         )}
@@ -187,7 +256,12 @@ function App() {
       </main>
 
       {stepIndex < steps.length - 1 && (
-        <button className="next-step" type="button" onClick={nextStep}>
+        <button
+          className="next-step"
+          type="button"
+          onClick={nextStep}
+          disabled={!stepUnlocked[steps[stepIndex + 1].id]}
+        >
           Continue to {steps[stepIndex + 1].label}
           <ChevronRight size={18} />
         </button>

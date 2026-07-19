@@ -40,6 +40,14 @@ POST `/mark-intake-ready-for-review`
 
 POST `/get-call-context`
 
+```json
+{
+  "campaign_id": "...",
+  "call_session_id": "...-negotiation",
+  "brief_version": 1
+}
+```
+
 Returns the frozen brief, allowed authority, and phase-specific permitted claims.
 
 ### `record_quote_fact`
@@ -75,6 +83,7 @@ POST `/evaluate-counteroffer`
 {
   "call_session_id": "...",
   "current_total": 5450,
+  "leverage_evidence_id": "evidence-uuid",
   "changes": [{ "component": "delivery", "previous_value": 250, "new_value": 0 }],
   "scope_change": false,
   "conditional_commitment": null

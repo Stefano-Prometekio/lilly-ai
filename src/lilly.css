@@ -1299,8 +1299,12 @@ textarea {
   animation: phone-fade 180ms ease-out;
 }
 @keyframes phone-fade {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 .phone-frame {
   width: min(360px, 100%);
@@ -1313,7 +1317,7 @@ textarea {
   flex-direction: column;
   align-items: center;
   gap: 18px;
-  border: 1px solid rgba(255,255,255,0.08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 .phone-status-bar {
   width: 100%;
@@ -1338,7 +1342,7 @@ textarea {
   width: 108px;
   height: 108px;
   border-radius: 50%;
-  background: rgba(255,255,255,0.08);
+  background: rgba(255, 255, 255, 0.08);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1359,8 +1363,14 @@ textarea {
   animation-delay: 0.8s;
 }
 @keyframes phone-ring {
-  0% { transform: scale(0.9); opacity: 0.9; }
-  100% { transform: scale(1.5); opacity: 0; }
+  0% {
+    transform: scale(0.9);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
 }
 .phone-caller {
   display: flex;
@@ -1384,7 +1394,7 @@ textarea {
   margin-top: 6px;
   padding: 4px 10px;
   border-radius: 999px;
-  background: rgba(255,255,255,0.08);
+  background: rgba(255, 255, 255, 0.08);
   font-size: 11px !important;
   opacity: 0.85 !important;
   text-transform: uppercase;
@@ -1416,10 +1426,14 @@ textarea {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: transform 120ms ease, box-shadow 120ms ease;
-  box-shadow: 0 10px 24px rgba(0,0,0,0.35);
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
 }
-.phone-button:hover { transform: translateY(-2px); }
+.phone-button:hover {
+  transform: translateY(-2px);
+}
 .phone-button--accept {
   background: linear-gradient(180deg, #22c55e, #15803d);
   animation: phone-pulse 1.4s ease-out infinite;
@@ -1428,9 +1442,250 @@ textarea {
   background: linear-gradient(180deg, #ef4444, #b91c1c);
 }
 .phone-button--mute {
-  background: rgba(255,255,255,0.14);
+  background: rgba(255, 255, 255, 0.14);
 }
 @keyframes phone-pulse {
-  0%, 100% { box-shadow: 0 10px 24px rgba(0,0,0,0.35), 0 0 0 0 rgba(34,197,94,0.5); }
-  50% { box-shadow: 0 10px 24px rgba(0,0,0,0.35), 0 0 0 14px rgba(34,197,94,0); }
+  0%,
+  100% {
+    box-shadow:
+      0 10px 24px rgba(0, 0, 0, 0.35),
+      0 0 0 0 rgba(34, 197, 94, 0.5);
+  }
+  50% {
+    box-shadow:
+      0 10px 24px rgba(0, 0, 0, 0.35),
+      0 0 0 14px rgba(34, 197, 94, 0);
+  }
+}
+
+.nav-item:disabled,
+.next-step:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.intake-source-card,
+.canonical-proof,
+.canonical-call-proof,
+.negotiation-result-card,
+.negotiation-delta,
+.ineligible-list,
+.other-outcomes {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.55);
+  padding: 16px;
+}
+
+.intake-source-card,
+.ineligible-list,
+.other-outcomes,
+.evidence-list {
+  display: grid;
+  gap: 10px;
+}
+
+.negotiation-result-card {
+  display: grid;
+  gap: 8px;
+  margin-top: 24px;
+  text-align: left;
+}
+
+.negotiation-result-card > span,
+.negotiation-result-card > strong,
+.negotiation-result-card > small {
+  display: block;
+}
+
+.negotiation-result-card > strong {
+  color: var(--green);
+  font-size: 1.2rem;
+}
+
+.negotiation-result-card > p {
+  margin: 0;
+}
+
+.intake-source-card > div,
+.document-proof,
+.canonical-call-proof,
+.report-vendor__heading,
+.evidence-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.intake-source-card span,
+.canonical-call-proof,
+.evidence-link span {
+  display: grid;
+  gap: 3px;
+}
+
+.document-button {
+  cursor: pointer;
+  justify-content: center;
+}
+
+.document-button input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.document-proof {
+  color: var(--green);
+  font-size: 13px;
+}
+
+.canonical-proof {
+  margin-top: 16px;
+}
+
+.canonical-proof > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.canonical-proof pre {
+  max-height: 260px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.sequential-call-card {
+  flex-wrap: wrap;
+}
+
+.call-sequence-log {
+  margin: 12px 0 0;
+  padding: 12px 16px 12px 32px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.03);
+  font-size: 13px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.vendor-grid {
+  margin-top: 16px;
+}
+
+.vendor-card--calling {
+  outline: 2px solid #4f46e5;
+}
+
+.vendor-meta {
+  color: #666;
+  font-size: 12px;
+}
+
+.canonical-call-proof {
+  justify-content: space-between;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+
+.negotiation-delta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.recommendation-layout--report {
+  grid-template-columns: minmax(280px, 0.75fr) minmax(320px, 1.25fr);
+}
+
+.full-report {
+  grid-column: 1 / -1;
+}
+
+.report-ranking {
+  display: grid;
+  gap: 16px;
+}
+
+.report-vendor {
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+
+.report-vendor__heading > div {
+  display: grid;
+  gap: 2px;
+  margin-right: auto;
+}
+
+.itemized-breakdown {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.itemized-breakdown div {
+  border-radius: 10px;
+  background: var(--mint);
+  padding: 10px;
+}
+
+.itemized-breakdown dt,
+.itemized-breakdown dd {
+  margin: 0;
+}
+
+.itemized-breakdown dt {
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: capitalize;
+}
+
+.itemized-breakdown dd {
+  margin-top: 3px;
+  font-weight: 700;
+}
+
+.evidence-link {
+  color: inherit;
+  border-radius: 10px;
+  background: var(--mint);
+  padding: 10px;
+  text-decoration: none;
+}
+
+.evidence-link span {
+  flex: 1;
+}
+
+.evidence-link small {
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.evidence-link--inline {
+  cursor: default;
+}
+
+.ineligible-list article,
+.other-outcomes article {
+  display: grid;
+  gap: 4px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+@media (max-width: 900px) {
+  .recommendation-layout--report,
+  .itemized-breakdown {
+    grid-template-columns: 1fr;
+  }
 }

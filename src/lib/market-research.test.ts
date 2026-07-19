@@ -23,6 +23,10 @@ const brief: CateringBrief = {
   mayUseVerifiedLeverage: true,
   mayDiscloseTargetBudget: false,
   mayBook: false,
+  intakeEvidence: {
+    voiceInterviewCompleted: true,
+    documents: [],
+  },
 };
 
 const reference: MarketReference = {

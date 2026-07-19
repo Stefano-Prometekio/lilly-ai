@@ -37,6 +37,9 @@ describe("voice intake brief updates", () => {
       serviceStyle: "Plated dinner",
       menuPreference: "Seasonal Belgian",
       dietaryRequirements: "No nuts; vegetarian options",
+      staffingHours: 6,
+      targetBudget: 6_000,
+      absoluteMaximum: 7_000,
     };
 
     expect(getMissingBriefFields(complete)).toEqual([]);

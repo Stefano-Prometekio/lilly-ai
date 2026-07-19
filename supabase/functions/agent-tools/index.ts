@@ -207,19 +207,45 @@ Deno.serve(async (request) => {
 
     if (route === "get-call-context") {
       const callSessionId = String(body.call_session_id ?? "");
+      const campaignId = String(body.campaign_id ?? "");
+      const briefVersion = Number(body.brief_version ?? 0);
+      if (!callSessionId || !campaignId || !briefVersion) {
+        throw new Error("call_session_id, campaign_id, and brief_version are required");
+      }
       const sessions = (await parseJson(
         await db(
           `/rest/v1/call_sessions?id=eq.${encodeURIComponent(callSessionId)}&select=*,campaigns(*),vendors(*)&limit=1`,
         ),
       )) as unknown[];
-      const evidence = await parseJson(
+      const briefs = (await parseJson(
         await db(
-          `/rest/v1/evidence_items?call_session_id=eq.${encodeURIComponent(callSessionId)}&leverage_eligible=eq.true&select=id,fact_type,fact_value,confidence`,
+          `/rest/v1/brief_versions?campaign_id=eq.${encodeURIComponent(campaignId)}&version=eq.${briefVersion}&status=eq.confirmed&select=content,content_hash,confirmed_at&limit=1`,
         ),
-      );
+      )) as Array<{
+        content: Record<string, unknown>;
+        content_hash: string | null;
+        confirmed_at: string | null;
+      }>;
+      if (!briefs.length || !briefs[0].content_hash) {
+        throw new Error("The requested confirmed brief version and hash were not found");
+      }
+      const eligibleSessions = (await parseJson(
+        await db(
+          `/rest/v1/call_sessions?campaign_id=eq.${encodeURIComponent(campaignId)}&brief_version=eq.${briefVersion}&status=eq.itemized_quote&select=id`,
+        ),
+      )) as Array<{ id: string }>;
+      const callIds = eligibleSessions.map((session) => session.id);
+      const evidence = callIds.length
+        ? await parseJson(
+            await db(
+              `/rest/v1/evidence_items?call_session_id=in.${encodeURIComponent(`(${callIds.join(",")})`)}&leverage_eligible=eq.true&confidence=gte.0.8&select=id,call_session_id,fact_type,fact_value,confidence,time_in_call_secs`,
+            ),
+          )
+        : [];
       return Response.json(
         {
           call: sessions[0] ?? null,
+          frozen_brief: briefs[0],
           permitted_claims: evidence ?? [],
           prohibited_disclosures: [
             "competitor_identity",
@@ -232,6 +258,24 @@ Deno.serve(async (request) => {
     }
 
     if (route === "evaluate-counteroffer") {
+      const leverageEvidenceId = String(body.leverage_evidence_id ?? "");
+      const eligibleEvidence = leverageEvidenceId
+        ? ((await parseJson(
+            await db(
+              `/rest/v1/evidence_items?id=eq.${encodeURIComponent(leverageEvidenceId)}&leverage_eligible=eq.true&confidence=gte.0.8&select=id&limit=1`,
+            ),
+          )) as Array<{ id: string }>)
+        : [];
+      if (!eligibleEvidence.length) {
+        return Response.json(
+          {
+            decision: "REJECT_CLAIM",
+            acceptable: false,
+            reason: "eligible_leverage_evidence_required",
+          },
+          { headers: corsHeaders },
+        );
+      }
       const currentTotal = Number(body.current_total ?? 0);
       const changes = Array.isArray(body.changes)
         ? (body.changes as Array<Record<string, unknown>>)
@@ -274,19 +318,41 @@ Deno.serve(async (request) => {
       ]);
       const outcome = String(body.outcome ?? "");
       if (!allowed.has(outcome)) throw new Error("A structured outcome is required");
+      const callSessionId = String(body.call_session_id ?? "");
+      if (!callSessionId) throw new Error("call_session_id is required");
+      if (outcome === "itemized_quote") {
+        const facts = (await parseJson(
+          await db(
+            `/rest/v1/evidence_items?call_session_id=eq.${encodeURIComponent(callSessionId)}&select=fact_type,confidence`,
+          ),
+        )) as Array<{ fact_type: string; confidence: number }>;
+        const captured = new Set(facts.map((fact) => fact.fact_type));
+        const missing = requiredQuoteFacts.filter((fact) => !captured.has(fact));
+        if (missing.length) {
+          throw new Error(`Cannot finalize an itemized quote; missing: ${missing.join(", ")}`);
+        }
+      }
       await parseJson(
-        await db(
-          `/rest/v1/call_sessions?id=eq.${encodeURIComponent(String(body.call_session_id ?? ""))}`,
-          {
-            method: "PATCH",
-            body: JSON.stringify({
-              status: outcome,
-              analysis: { structured_outcome: outcome, details: body.details ?? {} },
-              updated_at: new Date().toISOString(),
-            }),
-          },
-        ),
+        await db(`/rest/v1/call_sessions?id=eq.${encodeURIComponent(callSessionId)}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            status: outcome,
+            analysis: { structured_outcome: outcome, details: body.details ?? {} },
+            updated_at: new Date().toISOString(),
+          }),
+        }),
       );
+      if (outcome === "itemized_quote") {
+        await parseJson(
+          await db(
+            `/rest/v1/evidence_items?call_session_id=eq.${encodeURIComponent(callSessionId)}&confidence=gte.0.8`,
+            {
+              method: "PATCH",
+              body: JSON.stringify({ leverage_eligible: true }),
+            },
+          ),
+        );
+      }
       return Response.json(
         { finalized: true, outcome, may_end_call: true },
         { headers: corsHeaders },

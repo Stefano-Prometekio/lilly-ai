@@ -1,4 +1,5 @@
-import { CheckCircle2, LockKeyhole, Sparkles } from "lucide-react";
+import { useState } from "react";
+import { CheckCircle2, FileJson2, FlaskConical, LockKeyhole, Sparkles } from "lucide-react";
 import { useConversationClientTool } from "@elevenlabs/react";
 import type { CateringBrief } from "../domain";
 import {
@@ -8,19 +9,27 @@ import {
 } from "../lib/brief-intake";
 import { VoiceSession } from "./VoiceSession";
 import { LocationMap } from "./LocationMap";
+import { amendCanonicalBrief } from "../lib/canonical-brief";
+import { parseBriefDocument } from "../lib/document-intake";
 
 interface BriefFormProps {
   brief: CateringBrief;
   onChange: (brief: CateringBrief) => void;
-  onConfirm: () => void;
+  onConfirm: () => Promise<void>;
+  onLoadDemo: () => Promise<void>;
 }
 
-export function BriefForm({ brief, onChange, onConfirm }: BriefFormProps) {
+export function BriefForm({ brief, onChange, onConfirm, onLoadDemo }: BriefFormProps) {
+  const [documentError, setDocumentError] = useState<string>();
+  const [confirmationError, setConfirmationError] = useState<string>();
   const update = <K extends keyof CateringBrief>(key: K, value: CateringBrief[K]) =>
     onChange({ ...brief, [key]: value });
   const confirmed = brief.status === "confirmed";
   const missingFields = getMissingBriefFields(brief);
-  const readyToConfirm = missingFields.length === 0;
+  const fieldsReady = missingFields.length === 0;
+  const voiceReady = brief.intakeEvidence.voiceInterviewCompleted;
+  const documentReady = brief.intakeEvidence.documents.length > 0;
+  const readyToConfirm = fieldsReady && voiceReady && documentReady;
 
   useConversationClientTool("record_brief_fields", ({ fields }: RecordBriefFieldsParams) => {
     if (!fields || brief.status === "confirmed") {
@@ -30,7 +39,10 @@ export function BriefForm({ brief, onChange, onConfirm }: BriefFormProps) {
       });
     }
     const { nextBrief, updatedFields } = applyBriefFieldUpdate(brief, fields);
-    onChange(nextBrief);
+    onChange({
+      ...nextBrief,
+      intakeEvidence: { ...nextBrief.intakeEvidence, voiceInterviewCompleted: true },
+    });
     return JSON.stringify({
       success: true,
       updatedFields,
@@ -61,15 +73,57 @@ export function BriefForm({ brief, onChange, onConfirm }: BriefFormProps) {
     }),
   );
 
-  useConversationClientTool("mark_intake_ready_for_review", () =>
-    JSON.stringify({
-      success: readyToConfirm,
+  useConversationClientTool("mark_intake_ready_for_review", () => {
+    if (fieldsReady && !brief.intakeEvidence.voiceInterviewCompleted) {
+      onChange({
+        ...brief,
+        intakeEvidence: { ...brief.intakeEvidence, voiceInterviewCompleted: true },
+      });
+    }
+    return JSON.stringify({
+      success: fieldsReady,
       missingFields,
-      instruction: readyToConfirm
-        ? "The visible draft is ready for the buyer to review and confirm."
+      instruction: fieldsReady
+        ? "The visible draft is ready for document import and buyer confirmation."
         : "Continue intake one question at a time until the missing fields are supplied.",
-    }),
-  );
+    });
+  });
+
+  async function handleDocument(file?: File) {
+    if (!file || confirmed) return;
+    setDocumentError(undefined);
+    try {
+      const fields = parseBriefDocument(file.name, file.type, await file.text());
+      const { nextBrief, updatedFields } = applyBriefFieldUpdate(brief, fields);
+      onChange({
+        ...nextBrief,
+        intakeEvidence: {
+          ...nextBrief.intakeEvidence,
+          documents: [
+            ...nextBrief.intakeEvidence.documents,
+            {
+              id: `document-${Date.now().toString(36)}`,
+              name: file.name,
+              mimeType: file.type || "text/plain",
+              extractedFields: updatedFields,
+              importedAt: new Date().toISOString(),
+            },
+          ],
+        },
+      });
+    } catch (error) {
+      setDocumentError(error instanceof Error ? error.message : "Document import failed.");
+    }
+  }
+
+  async function handleConfirm() {
+    setConfirmationError(undefined);
+    try {
+      await onConfirm();
+    } catch (error) {
+      setConfirmationError(error instanceof Error ? error.message : "Brief confirmation failed.");
+    }
+  }
 
   return (
     <section className="workspace-grid workspace-grid--intake">
@@ -94,12 +148,54 @@ export function BriefForm({ brief, onChange, onConfirm }: BriefFormProps) {
           }}
         />
 
+        <div className="intake-source-card">
+          <div>
+            <FileJson2 size={18} />
+            <span>
+              <strong>Import an existing brief or inventory</strong>
+              <small>JSON, CSV, or key-value text is parsed into the same fields as voice.</small>
+            </span>
+          </div>
+          <label className="button button--secondary document-button">
+            Choose document
+            <input
+              type="file"
+              accept=".json,.csv,.txt,application/json,text/csv,text/plain"
+              disabled={confirmed}
+              onChange={(event) => void handleDocument(event.currentTarget.files?.[0])}
+            />
+          </label>
+          {documentError && <p className="error-note">{documentError}</p>}
+          {brief.intakeEvidence.documents.map((document) => (
+            <div className="document-proof" key={document.id}>
+              <CheckCircle2 size={15} />
+              <span>
+                {document.name} · {document.extractedFields.length} fields imported
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <button
+          className="button button--secondary button--wide"
+          type="button"
+          onClick={onLoadDemo}
+        >
+          <FlaskConical size={17} /> Load transparent dry-run evidence
+        </button>
+
         <div className="trust-row">
           <span>
             <LockKeyhole size={15} /> You approve the final brief
           </span>
           <span>
             <CheckCircle2 size={15} /> Lilly cannot place a booking
+          </span>
+          <span className={voiceReady ? "success-text" : ""}>
+            <CheckCircle2 size={15} /> Voice interview {voiceReady ? "recorded" : "required"}
+          </span>
+          <span className={documentReady ? "success-text" : ""}>
+            <CheckCircle2 size={15} /> Document {documentReady ? "imported" : "required"}
           </span>
         </div>
       </div>
@@ -280,7 +376,7 @@ export function BriefForm({ brief, onChange, onConfirm }: BriefFormProps) {
           <button
             className="button button--primary button--wide"
             type="button"
-            onClick={onConfirm}
+            onClick={() => void handleConfirm()}
             disabled={!readyToConfirm}
           >
             <CheckCircle2 size={18} /> Confirm brief and freeze version
@@ -289,7 +385,7 @@ export function BriefForm({ brief, onChange, onConfirm }: BriefFormProps) {
           <button
             className="button button--secondary button--wide"
             type="button"
-            onClick={() => onChange({ ...brief, status: "draft", version: brief.version + 1 })}
+            onClick={() => onChange(amendCanonicalBrief(brief))}
           >
             Create an amended version
           </button>
@@ -297,12 +393,23 @@ export function BriefForm({ brief, onChange, onConfirm }: BriefFormProps) {
         {!confirmed && !readyToConfirm && (
           <p className="inline-note">
             Still needed:{" "}
-            {missingFields
-              .join(", ")
-              .replaceAll(/([A-Z])/g, " $1")
-              .toLowerCase()}
+            {[
+              ...missingFields.map((field) => field.replaceAll(/([A-Z])/g, " $1").toLowerCase()),
+              ...(voiceReady ? [] : ["completed voice interview"]),
+              ...(documentReady ? [] : ["one imported document"]),
+            ].join(", ")}
             .
           </p>
+        )}
+        {confirmationError && <p className="error-note">{confirmationError}</p>}
+        {confirmed && brief.canonicalJson && (
+          <div className="canonical-proof">
+            <div>
+              <span className="kicker">Frozen call payload</span>
+              <strong>SHA-256 {brief.contentHash?.slice(0, 16)}…</strong>
+            </div>
+            <pre>{JSON.stringify(JSON.parse(brief.canonicalJson), null, 2)}</pre>
+          </div>
         )}
       </div>
     </section>

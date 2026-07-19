@@ -1,6 +1,16 @@
 import type { CateringBrief } from "../domain";
 
-export type EditableBriefFields = Omit<CateringBrief, "id" | "version" | "status" | "mayBook">;
+export type EditableBriefFields = Omit<
+  CateringBrief,
+  | "id"
+  | "version"
+  | "status"
+  | "mayBook"
+  | "intakeEvidence"
+  | "canonicalJson"
+  | "contentHash"
+  | "confirmedAt"
+>;
 
 export interface RecordBriefFieldsParams {
   fields?: Partial<EditableBriefFields>;
@@ -14,6 +24,9 @@ const requiredBriefFields: Array<keyof EditableBriefFields> = [
   "serviceStyle",
   "menuPreference",
   "dietaryRequirements",
+  "staffingHours",
+  "targetBudget",
+  "absoluteMaximum",
 ];
 
 export function getMissingBriefFields(brief: CateringBrief) {

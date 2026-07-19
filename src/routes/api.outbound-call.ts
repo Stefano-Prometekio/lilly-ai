@@ -46,7 +46,27 @@ export const Route = createFileRoute("/api/outbound-call")({
         }
 
         const vendorName = dynamicVariables.vendor_name || "the catering team";
-        const eventSummary = dynamicVariables.event_summary || "an upcoming event";
+        const canonicalJson = dynamicVariables.canonical_brief_json;
+        const briefHash = dynamicVariables.brief_hash;
+        if (!canonicalJson || !briefHash || !dynamicVariables.brief_version) {
+          return Response.json(
+            { error: "A frozen canonical brief JSON, hash, and version are required." },
+            { status: 400 },
+          );
+        }
+        let eventSummary = "the exact confirmed catering brief";
+        try {
+          const canonical = JSON.parse(canonicalJson) as {
+            eventType?: string;
+            eventDate?: string;
+            city?: string;
+            guestCount?: number;
+            serviceStyle?: string;
+          };
+          eventSummary = `${canonical.eventType}, ${canonical.eventDate}, ${canonical.city}, ${canonical.guestCount} guests, ${canonical.serviceStyle}`;
+        } catch {
+          return Response.json({ error: "canonical_brief_json is invalid JSON." }, { status: 400 });
+        }
         const firstMessage = `Hi, this is Lilly, an AI procurement assistant calling on behalf of an event buyer. Am I reaching ${vendorName}? I'm gathering a catering quote for ${eventSummary} and hoping you have a couple of minutes to walk through it.`;
 
         const payload = {

@@ -2,6 +2,20 @@ export type CampaignStep = "intake" | "research" | "calls" | "compare" | "negoti
 
 export type BriefStatus = "draft" | "confirmed";
 
+export interface IntakeDocumentEvidence {
+  id: string;
+  name: string;
+  mimeType: string;
+  extractedFields: string[];
+  importedAt: string;
+}
+
+export interface IntakeEvidence {
+  voiceInterviewCompleted: boolean;
+  voiceConversationId?: string;
+  documents: IntakeDocumentEvidence[];
+}
+
 export interface CateringBrief {
   id: string;
   version: number;
@@ -22,6 +36,10 @@ export interface CateringBrief {
   mayUseVerifiedLeverage: boolean;
   mayDiscloseTargetBudget: boolean;
   mayBook: false;
+  intakeEvidence: IntakeEvidence;
+  canonicalJson?: string;
+  contentHash?: string;
+  confirmedAt?: string;
 }
 
 export interface MarketSource {
@@ -69,6 +87,36 @@ export interface QuoteComponents {
   other: number;
 }
 
+export type QuoteComponentKey = keyof QuoteComponents;
+
+export type CallOutcomeKind = "itemized_quote" | "callback_commitment" | "documented_decline";
+
+export interface CallOutcome {
+  kind: CallOutcomeKind;
+  summary: string;
+  callbackAt?: string;
+  finalizedAt: string;
+}
+
+export interface EvidenceCitation {
+  id: string;
+  kind: "transcript" | "recording" | "document";
+  label: string;
+  excerpt?: string;
+  timestampSeconds?: number;
+  url?: string;
+  callSessionId?: string;
+}
+
+export interface NegotiationRecord {
+  initialTotal: number;
+  finalTotal: number;
+  delta: number;
+  changedTerms: string;
+  leverageEvidenceId: string;
+  finalizedAt: string;
+}
+
 export interface VendorQuote {
   id: string;
   vendorName: string;
@@ -82,8 +130,20 @@ export interface VendorQuote {
   cancellationDays: number;
   validUntil: string;
   notes: string;
+  missingComponents: QuoteComponentKey[];
+  outcome?: CallOutcome;
+  draftOutcomeKind: CallOutcomeKind;
+  callbackAt?: string;
+  transcriptTimestampSeconds?: number;
+  transcriptUrl?: string;
+  recordingUrl?: string;
+  evidence: EvidenceCitation[];
+  briefVersion?: number;
+  briefHash?: string;
+  briefSnapshot?: string;
   initialNormalizedTotal?: number;
   negotiatedChange?: string;
+  negotiation?: NegotiationRecord;
 }
 
 export interface NormalizedQuote extends VendorQuote {
@@ -91,4 +151,19 @@ export interface NormalizedQuote extends VendorQuote {
   varianceFromMarket: number;
   suspiciousLow: boolean;
   score: number;
+  eligibleForRanking: boolean;
+  ineligibilityReasons: string[];
+}
+
+export interface NegotiationPlan {
+  id: string;
+  finalistId: string;
+  alternativeQuoteId: string;
+  alternativeVendorName: string;
+  alternativeTotal: number;
+  leverageEvidenceId: string;
+  permittedClaim: string;
+  targetRequest: string;
+  briefHash: string;
+  createdAt: string;
 }

@@ -1,0 +1,15 @@
+{
+  "eventType": "Wedding reception",
+  "eventDate": "2026-09-18",
+  "city": "Brussels",
+  "venueAddress": "Demo Venue, Brussels",
+  "guestCount": 100,
+  "serviceStyle": "Plated dinner",
+  "menuPreference": "Seasonal Belgian menu",
+  "dietaryRequirements": "Nut-free kitchen; 12 vegetarian meals",
+  "staffingHours": 6,
+  "targetBudget": 5200,
+  "absoluteMaximum": 7000,
+  "radiusKm": 25,
+  "currency": "EUR"
+}

@@ -1,23 +1,29 @@
 import { CheckCircle2, ClipboardPen, Headphones, PhoneOutgoing, UserRound } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import type { CateringBrief, MarketVendor, VendorQuote } from "../domain";
-import { VoiceSession } from "./VoiceSession";
+import type {
+  CallOutcomeKind,
+  CateringBrief,
+  MarketVendor,
+  QuoteComponentKey,
+  VendorQuote,
+} from "../domain";
+import { finalizeVendorQuote, quoteComponentKeys } from "../lib/procurement";
 import { BrowserPhoneCall, type BrowserCallRequest } from "./BrowserPhoneCall";
-
+import { VoiceSession } from "./VoiceSession";
 
 function buildDynamicVariables(brief: CateringBrief, quote: VendorQuote) {
   return {
     campaign_id: brief.id,
     brief_id: brief.id,
     brief_version: brief.version,
+    brief_hash: brief.contentHash ?? "",
+    canonical_brief_json: brief.canonicalJson ?? "",
     call_session_id: quote.id,
     call_mode: "INITIAL_QUOTE",
     vendor_name: quote.vendorName,
-    event_summary: `${brief.eventType}, ${brief.eventDate}, ${brief.city}, ${brief.guestCount} guests, ${brief.serviceStyle}`,
-    hard_constraints_summary: brief.dietaryRequirements,
+    may_use_verified_leverage: false,
   } as Record<string, string | number | boolean>;
 }
-
 
 const personaCopy = {
   "hidden-fees": {
@@ -32,9 +38,14 @@ const personaCopy = {
   },
   stonewaller: {
     label: "Tough stonewaller",
-    objective:
-      "Give vague ranges and limited authority. Move only when Lilly asks focused questions.",
+    objective: "Give vague ranges and limited authority. Move only after focused questions.",
   },
+} as const;
+
+const outcomeLabels: Record<CallOutcomeKind, string> = {
+  itemized_quote: "Itemized quote",
+  callback_commitment: "Callback commitment",
+  documented_decline: "Documented decline",
 };
 
 interface VendorCallsProps {
@@ -64,14 +75,15 @@ export function VendorCalls({
   const activeQuote = quotes.find((quote) => quote.id === activeQuoteId);
   const abortRef = useRef<{ aborted: boolean }>({ aborted: false });
   const resolveCallRef = useRef<((reason: "ended" | "declined") => void) | null>(null);
+  const [captureError, setCaptureError] = useState<string>();
   const [seq, setSeq] = useState<SequentialState>({
     running: false,
     currentIndex: -1,
     log: [],
   });
-  const [currentCall, setCurrentCall] = useState<
-    (BrowserCallRequest & { quoteId: string }) | null
-  >(null);
+  const [currentCall, setCurrentCall] = useState<(BrowserCallRequest & { quoteId: string }) | null>(
+    null,
+  );
 
   useEffect(
     () => () => {
@@ -86,7 +98,7 @@ export function VendorCalls({
       setCurrentCall({
         quoteId: quote.id,
         vendorName: quote.vendorName,
-        vendorAddress: vendors?.find((_v, i) => quotes[i]?.id === quote.id)?.address,
+        vendorAddress: vendors?.find((_vendor, index) => quotes[index]?.id === quote.id)?.address,
         dynamicVariables: buildDynamicVariables(brief, quote),
       });
     });
@@ -94,47 +106,108 @@ export function VendorCalls({
 
   function finishCall(reason: "ended" | "declined") {
     setCurrentCall(null);
-    const r = resolveCallRef.current;
+    const resolve = resolveCallRef.current;
     resolveCallRef.current = null;
-    r?.(reason);
+    resolve?.(reason);
+  }
+
+  function finalizeUnquotedCall(quote: VendorQuote, reason: "ended" | "declined") {
+    const summary =
+      reason === "declined"
+        ? "Vendor declined or did not answer the role-play call; no quote was obtained."
+        : "Call ended before a complete quote was confirmed; documented as no usable quote.";
+    return finalizeVendorQuote(
+      {
+        ...quote,
+        draftOutcomeKind: "documented_decline",
+        notes: summary,
+        transcriptTimestampSeconds: 0,
+      },
+      brief,
+    );
   }
 
   async function runAllCalls() {
+    if (!brief.canonicalJson || !brief.contentHash || brief.status !== "confirmed") {
+      setSeq((current) => ({
+        ...current,
+        error: "Confirm the frozen brief before starting calls.",
+      }));
+      return;
+    }
+
     abortRef.current = { aborted: false };
     setSeq({ running: true, currentIndex: 0, log: [], error: undefined });
 
-    for (let i = 0; i < quotes.length; i++) {
+    for (let index = 0; index < quotes.length; index += 1) {
       if (abortRef.current.aborted) break;
-      const quote = quotes[i];
-      setSeq((s) => ({
-        ...s,
-        currentIndex: i,
-        log: [...s.log, `Ringing ${quote.vendorName} in the browser...`],
+      const quote = quotes[index];
+      setSeq((current) => ({
+        ...current,
+        currentIndex: index,
+        log: [...current.log, `Ringing ${quote.vendorName} in the browser...`],
       }));
-      onUpdate({ ...quote, status: "calling" });
+      onUpdate({ ...quote, status: "calling", outcome: undefined });
       const reason = await waitForBrowserCall(quote);
       if (abortRef.current.aborted) break;
-      if (reason === "declined") {
-        setSeq((s) => ({
-          ...s,
-          log: [...s.log, `${quote.vendorName} did not answer. Moving on.`],
-        }));
-        onUpdate({ ...quote, status: "not-started" });
-      } else {
-        setSeq((s) => ({ ...s, log: [...s.log, `Finished call with ${quote.vendorName}.`] }));
-      }
-      // small pacing gap before the next vendor rings
-      await new Promise((r) => setTimeout(r, 800));
+      onUpdate(finalizeUnquotedCall(quote, reason));
+      setSeq((current) => ({
+        ...current,
+        log: [
+          ...current.log,
+          reason === "declined"
+            ? `${quote.vendorName}: documented decline.`
+            : `${quote.vendorName}: call ended without a finalized quote; documented for follow-up.`,
+        ],
+      }));
+      await new Promise((resolve) => setTimeout(resolve, 500));
     }
-    setSeq((s) => ({ ...s, running: false, currentIndex: -1, log: [...s.log, "All calls complete."] }));
+    setSeq((current) => ({
+      ...current,
+      running: false,
+      currentIndex: -1,
+      log: [...current.log, "All calls now have structured outcomes."],
+    }));
   }
 
   function stopAllCalls() {
     abortRef.current.aborted = true;
     if (resolveCallRef.current) finishCall("declined");
-    setSeq((s) => ({ ...s, running: false }));
+    setSeq((current) => ({ ...current, running: false }));
   }
 
+  function updateActiveQuote(patch: Partial<VendorQuote>) {
+    if (!activeQuote) return;
+    setCaptureError(undefined);
+    onUpdate({
+      ...activeQuote,
+      ...patch,
+      status: "calling",
+      outcome: undefined,
+      evidence: [],
+      negotiation: undefined,
+    });
+  }
+
+  function updateComponent(key: QuoteComponentKey, value: number) {
+    if (!activeQuote) return;
+    updateActiveQuote({
+      components: { ...activeQuote.components, [key]: value },
+      missingComponents: activeQuote.missingComponents.filter((component) => component !== key),
+    });
+  }
+
+  function saveStructuredOutcome() {
+    if (!activeQuote) return;
+    setCaptureError(undefined);
+    try {
+      onUpdate(finalizeVendorQuote(activeQuote, brief));
+    } catch (error) {
+      setCaptureError(error instanceof Error ? error.message : "Could not finalize this call.");
+    }
+  }
+
+  const structuredCount = quotes.filter((quote) => Boolean(quote.outcome)).length;
 
   return (
     <section className="calls-layout">
@@ -142,34 +215,31 @@ export function VendorCalls({
         <div className="section-heading">
           <div>
             <span className="kicker">Round one</span>
-            <h2>Vendors from live market research</h2>
+            <h2>Three distinct vendor conversations</h2>
           </div>
           <span className="status-pill">
-            {quotes.filter((q) => q.status === "captured").length}/{quotes.length} captured
+            {structuredCount}/{quotes.length} structured
           </span>
         </div>
         <p className="panel-intro">
-          Lilly will call each vendor back-to-back <strong>right here in the browser</strong>. When
-          the phone rings, click <strong>Answer</strong> to pick up as the vendor and talk to
-          Lilly. She'll gather a full quote before moving on to the next.
+          Every call receives brief v{brief.version}, fingerprint {brief.contentHash?.slice(0, 12)}
+          …, and the exact same canonical JSON. A call cannot count until it has an itemized quote,
+          callback commitment, or documented decline.
         </p>
 
-
-        <div className="voice-session" style={{ flexWrap: "wrap" }}>
+        <div className="voice-session sequential-call-card">
           <div className="voice-orb" aria-hidden="true">
             <PhoneOutgoing size={26} />
           </div>
           <div className="voice-session__copy">
-            <strong>Sequential outbound calls</strong>
+            <strong>Sequential browser role-play calls</strong>
             <span>
               {seq.running
-                ? `Calling vendor ${seq.currentIndex + 1} of ${quotes.length}: ${quotes[seq.currentIndex]?.vendorName ?? ""}`
-                : seq.log.length
-                  ? seq.log[seq.log.length - 1]
-                  : `Ready to call ${quotes.length} vendors in a row.`}
+                ? `Calling ${seq.currentIndex + 1} of ${quotes.length}: ${quotes[seq.currentIndex]?.vendorName ?? ""}`
+                : (seq.log.at(-1) ?? `Ready to call ${quotes.length} vendors.`)}
             </span>
           </div>
-          <div className="voice-session__actions" style={{ gap: 8 }}>
+          <div className="voice-session__actions">
             {seq.running ? (
               <button className="button button--secondary" type="button" onClick={stopAllCalls}>
                 Stop
@@ -181,43 +251,29 @@ export function VendorCalls({
             )}
           </div>
         </div>
+        {seq.error && <p className="error-note">{seq.error}</p>}
 
         {seq.log.length > 0 && (
-          <ol
-            style={{
-              marginTop: 12,
-              padding: "10px 14px",
-              background: "rgba(0,0,0,0.03)",
-              borderRadius: 8,
-              fontSize: 13,
-              maxHeight: 160,
-              overflowY: "auto",
-            }}
-          >
-            {seq.log.map((line, i) => (
-              <li key={i} style={{ listStyle: "decimal inside" }}>
-                {line}
-              </li>
+          <ol className="call-sequence-log">
+            {seq.log.map((line) => (
+              <li key={line}>{line}</li>
             ))}
           </ol>
         )}
 
-        <div className="vendor-grid" style={{ marginTop: 16 }}>
+        <div className="vendor-grid">
           {quotes.map((quote, index) => {
             const copy = personaCopy[quote.persona];
             const vendor = vendors?.[index];
             const isCurrent = seq.running && seq.currentIndex === index;
             return (
               <article
-                className={`vendor-card ${activeQuoteId === quote.id ? "vendor-card--active" : ""}`}
+                className={`vendor-card ${activeQuoteId === quote.id ? "vendor-card--active" : ""} ${isCurrent ? "vendor-card--calling" : ""}`}
                 key={quote.id}
-                style={isCurrent ? { outline: "2px solid #4f46e5" } : undefined}
               >
                 <div className="vendor-card__top">
                   <span className="vendor-index">0{index + 1}</span>
-                  {quote.status === "captured" && (
-                    <CheckCircle2 size={19} className="success-icon" />
-                  )}
+                  {quote.outcome && <CheckCircle2 size={19} className="success-icon" />}
                 </div>
                 <input
                   className="vendor-name-input"
@@ -225,24 +281,19 @@ export function VendorCalls({
                   onChange={(event) => onUpdate({ ...quote, vendorName: event.target.value })}
                   aria-label={`Vendor ${index + 1} name`}
                 />
-                {vendor?.address && (
-                  <span style={{ fontSize: 12, color: "#666" }}>{vendor.address}</span>
-                )}
+                {vendor?.address && <span className="vendor-meta">{vendor.address}</span>}
                 {vendor?.rating != null && (
-                  <span style={{ fontSize: 12, color: "#666" }}>
-                    ★ {vendor.rating} ({vendor.reviewCount ?? 0} reviews)
+                  <span className="vendor-meta">
+                    Rating {vendor.rating} ({vendor.reviewCount ?? 0} reviews)
                   </span>
                 )}
-                {quote.status === "captured" ? (
-                  <>
-                    <span className="persona-label">
-                      <UserRound size={14} /> Negotiation style: {copy.label}
-                    </span>
-                    <p>{copy.objective}</p>
-                  </>
-                ) : (
-                  <span className="persona-label" style={{ opacity: 0.6 }}>
-                    <UserRound size={14} /> Negotiation style assigned after the call
+                <span className="persona-label">
+                  <UserRound size={14} /> Negotiation style: {copy.label}
+                </span>
+                <p>{copy.objective}</p>
+                {quote.outcome && (
+                  <span className="status-pill status-pill--success">
+                    {outcomeLabels[quote.outcome.kind]}
                   </span>
                 )}
                 <button
@@ -272,127 +323,169 @@ export function VendorCalls({
           <div className="persona-brief">
             <ClipboardPen size={18} />
             <div>
-              <strong>Your private role-play instruction</strong>
+              <strong>Private role-play instruction</strong>
               <span>{personaCopy[activeQuote.persona].objective}</span>
             </div>
+          </div>
+          <div className="canonical-call-proof">
+            <strong>Exact frozen input</strong>
+            <span>
+              Brief v{brief.version} · SHA-256 {brief.contentHash?.slice(0, 16)}…
+            </span>
           </div>
           <VoiceSession
             agentId={import.meta.env.VITE_ELEVENLABS_PROCUREMENT_AGENT_ID}
             label={`Lilly calling ${activeQuote.vendorName}`}
-            dynamicVariables={{
-              campaign_id: brief.id,
-              brief_id: brief.id,
-              brief_version: brief.version,
-              call_session_id: activeQuote.id,
-              call_mode: "INITIAL_QUOTE",
-              vendor_name: activeQuote.vendorName,
-              event_summary: `${brief.eventType}, ${brief.eventDate}, ${brief.city}, ${brief.guestCount} guests, ${brief.serviceStyle}`,
-              hard_constraints_summary: brief.dietaryRequirements,
-              may_use_verified_leverage: false,
-            }}
-            onStarted={() => onUpdate({ ...activeQuote, status: "calling" })}
+            dynamicVariables={buildDynamicVariables(brief, activeQuote)}
+            onStarted={() => updateActiveQuote({ status: "calling" })}
           />
-          
 
           <div className="quote-capture">
-            <span className="kicker">Structured call outcome</span>
+            <span className="kicker">Required structured call outcome</span>
+            <label>
+              <span>Outcome type</span>
+              <select
+                value={activeQuote.draftOutcomeKind}
+                onChange={(event) =>
+                  updateActiveQuote({ draftOutcomeKind: event.target.value as CallOutcomeKind })
+                }
+              >
+                {Object.entries(outcomeLabels).map(([value, label]) => (
+                  <option value={value} key={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {activeQuote.draftOutcomeKind === "itemized_quote" && (
+              <>
+                <div className="field-grid field-grid--compact">
+                  <label>
+                    <span>Headline total</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={activeQuote.headlineTotal}
+                      onChange={(event) =>
+                        updateActiveQuote({ headlineTotal: Number(event.target.value) })
+                      }
+                    />
+                  </label>
+                  {quoteComponentKeys.map((key) => (
+                    <label key={key}>
+                      <span>{key.replaceAll(/([A-Z])/g, " $1")}</span>
+                      <input
+                        type="number"
+                        min="0"
+                        value={activeQuote.components[key]}
+                        onChange={(event) => updateComponent(key, Number(event.target.value))}
+                      />
+                    </label>
+                  ))}
+                  <label>
+                    <span>Deposit percent</span>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={activeQuote.depositPercent}
+                      onChange={(event) =>
+                        updateActiveQuote({ depositPercent: Number(event.target.value) })
+                      }
+                    />
+                  </label>
+                  <label>
+                    <span>Cancellation notice days</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={activeQuote.cancellationDays}
+                      onChange={(event) =>
+                        updateActiveQuote({ cancellationDays: Number(event.target.value) })
+                      }
+                    />
+                  </label>
+                  <label>
+                    <span>Quote valid until</span>
+                    <input
+                      type="date"
+                      value={activeQuote.validUntil}
+                      onChange={(event) => updateActiveQuote({ validUntil: event.target.value })}
+                    />
+                  </label>
+                </div>
+                <button
+                  className="button button--secondary button--wide"
+                  type="button"
+                  onClick={() => updateActiveQuote({ missingComponents: [] })}
+                >
+                  Confirm every line item was read back
+                </button>
+                {activeQuote.missingComponents.length > 0 && (
+                  <p className="inline-note">
+                    Still unconfirmed: {activeQuote.missingComponents.join(", ")}.
+                  </p>
+                )}
+              </>
+            )}
+
+            {activeQuote.draftOutcomeKind === "callback_commitment" && (
+              <label>
+                <span>Promised callback</span>
+                <input
+                  type="datetime-local"
+                  value={activeQuote.callbackAt ?? ""}
+                  onChange={(event) => updateActiveQuote({ callbackAt: event.target.value })}
+                />
+              </label>
+            )}
+
+            <label>
+              <span>Transcript evidence / outcome summary</span>
+              <textarea
+                value={activeQuote.notes}
+                onChange={(event) => updateActiveQuote({ notes: event.target.value })}
+              />
+            </label>
+            {activeQuote.draftOutcomeKind === "itemized_quote" && (
+              <label>
+                <span>Transcript read-back timestamp (seconds)</span>
+                <input
+                  type="number"
+                  min="0"
+                  value={activeQuote.transcriptTimestampSeconds ?? ""}
+                  onChange={(event) =>
+                    updateActiveQuote({ transcriptTimestampSeconds: Number(event.target.value) })
+                  }
+                />
+              </label>
+            )}
             <div className="field-grid field-grid--compact">
               <label>
-                <span>Headline total</span>
+                <span>Transcript URL (optional)</span>
                 <input
-                  type="number"
-                  value={activeQuote.headlineTotal}
-                  onChange={(e) =>
-                    onUpdate({ ...activeQuote, headlineTotal: Number(e.target.value) })
-                  }
+                  type="url"
+                  value={activeQuote.transcriptUrl ?? ""}
+                  onChange={(event) => updateActiveQuote({ transcriptUrl: event.target.value })}
                 />
               </label>
               <label>
-                <span>Food & beverage</span>
+                <span>Recording URL (optional)</span>
                 <input
-                  type="number"
-                  value={activeQuote.components.foodAndBeverage}
-                  onChange={(e) =>
-                    onUpdate({
-                      ...activeQuote,
-                      components: {
-                        ...activeQuote.components,
-                        foodAndBeverage: Number(e.target.value),
-                      },
-                    })
-                  }
-                />
-              </label>
-              <label>
-                <span>Staffing</span>
-                <input
-                  type="number"
-                  value={activeQuote.components.staffing}
-                  onChange={(e) =>
-                    onUpdate({
-                      ...activeQuote,
-                      components: { ...activeQuote.components, staffing: Number(e.target.value) },
-                    })
-                  }
-                />
-              </label>
-              <label>
-                <span>Delivery</span>
-                <input
-                  type="number"
-                  value={activeQuote.components.delivery}
-                  onChange={(e) =>
-                    onUpdate({
-                      ...activeQuote,
-                      components: { ...activeQuote.components, delivery: Number(e.target.value) },
-                    })
-                  }
-                />
-              </label>
-              <label>
-                <span>Tableware</span>
-                <input
-                  type="number"
-                  value={activeQuote.components.tableware}
-                  onChange={(e) =>
-                    onUpdate({
-                      ...activeQuote,
-                      components: { ...activeQuote.components, tableware: Number(e.target.value) },
-                    })
-                  }
-                />
-              </label>
-              <label>
-                <span>Tax / fees</span>
-                <input
-                  type="number"
-                  value={activeQuote.components.tax + activeQuote.components.other}
-                  onChange={(e) =>
-                    onUpdate({
-                      ...activeQuote,
-                      components: {
-                        ...activeQuote.components,
-                        tax: Number(e.target.value),
-                        other: 0,
-                      },
-                    })
-                  }
+                  type="url"
+                  value={activeQuote.recordingUrl ?? ""}
+                  onChange={(event) => updateActiveQuote({ recordingUrl: event.target.value })}
                 />
               </label>
             </div>
-            <label>
-              <span>Evidence notes</span>
-              <textarea
-                value={activeQuote.notes}
-                onChange={(e) => onUpdate({ ...activeQuote, notes: e.target.value })}
-              />
-            </label>
+            {captureError && <p className="error-note">{captureError}</p>}
             <button
               className="button button--primary button--wide"
               type="button"
-              onClick={() => onUpdate({ ...activeQuote, status: "captured" })}
+              onClick={saveStructuredOutcome}
             >
-              <CheckCircle2 size={18} /> Save structured outcome
+              <CheckCircle2 size={18} /> Validate and save outcome
             </button>
           </div>
         </div>
@@ -403,6 +496,5 @@ export function VendorCalls({
         onEnded={() => finishCall("ended")}
       />
     </section>
-
   );
 }

@@ -21,6 +21,21 @@ interface BrowserPhoneCallProps {
 
 type UiPhase = "ringing" | "connecting" | "live" | "ended";
 
+function describeCanonicalScope(dynamicVariables: Record<string, string | number | boolean>) {
+  try {
+    const canonical = JSON.parse(String(dynamicVariables.canonical_brief_json ?? "")) as {
+      eventType?: string;
+      eventDate?: string;
+      city?: string;
+      guestCount?: number;
+      serviceStyle?: string;
+    };
+    return `${canonical.eventType}, ${canonical.eventDate}, ${canonical.city}, ${canonical.guestCount} guests, ${canonical.serviceStyle}`;
+  } catch {
+    return "the exact confirmed catering brief supplied with this call";
+  }
+}
+
 export function BrowserPhoneCall({ call, onDeclined, onEnded }: BrowserPhoneCallProps) {
   const { startSession, endSession } = useConversationControls();
   const { status } = useConversationStatus();
@@ -71,7 +86,7 @@ export function BrowserPhoneCall({ call, onDeclined, onEnded }: BrowserPhoneCall
       );
       const token = await getElevenLabsConversationToken(LILLY_PUBLIC_AGENT_ID, participantName);
       const vendorName = String(call.dynamicVariables.vendor_name ?? call.vendorName);
-      const eventSummary = String(call.dynamicVariables.event_summary ?? "an upcoming event");
+      const eventSummary = describeCanonicalScope(call.dynamicVariables);
       const firstMessage = `Hi, this is Lilly, an AI procurement assistant calling on behalf of an event buyer. Am I reaching ${vendorName}? I'm gathering a catering quote for ${eventSummary} and hoping you have a couple of minutes to walk through it.`;
       const commonOptions = {
         connectionType: "webrtc" as const,
