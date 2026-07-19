@@ -2398,7 +2398,9 @@ h1 {
 }
 
 .comparison-cards {
-  display: none;
+  display: grid;
+  gap: 13px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 }
 
 .report-evidence {
