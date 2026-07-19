@@ -75,14 +75,14 @@ export function BrowserPhoneCall({ call, onDeclined, onEnded }: BrowserPhoneCall
     }
   }, [rawConversation, status]);
 
-  // Fallback: also poll controls.getId() while live.
+  // Fallback: also poll rawConversation.getId() while live.
   useEffect(() => {
     if (phase !== "live" || conversationIdRef.current) return;
     let cancelled = false;
     const tick = () => {
       if (cancelled || conversationIdRef.current) return;
       try {
-        const id = getId();
+        const id = rawConversation?.getId?.();
         if (id) {
           conversationIdRef.current = id;
           console.log("[BrowserPhoneCall] captured conversation id (poll)", id);
@@ -97,7 +97,7 @@ export function BrowserPhoneCall({ call, onDeclined, onEnded }: BrowserPhoneCall
     return () => {
       cancelled = true;
     };
-  }, [phase, getId]);
+  }, [phase, rawConversation]);
 
   // Track ElevenLabs status → phase.
   useEffect(() => {
@@ -107,10 +107,9 @@ export function BrowserPhoneCall({ call, onDeclined, onEnded }: BrowserPhoneCall
     }
     if (phase === "live" && status === "disconnected" && !endedRef.current) {
       endedRef.current = true;
-      // Try one last id capture before we lose the Conversation object.
       if (!conversationIdRef.current) {
         try {
-          const id = rawConversation?.getId?.() || getId();
+          const id = rawConversation?.getId?.();
           if (id) conversationIdRef.current = id;
         } catch {
           /* noop */
@@ -119,7 +118,7 @@ export function BrowserPhoneCall({ call, onDeclined, onEnded }: BrowserPhoneCall
       setPhase("ended");
       setTimeout(() => onEnded(conversationIdRef.current), 1200);
     }
-  }, [status, call, phase, onEnded, rawConversation, getId]);
+  }, [status, call, phase, onEnded, rawConversation]);
 
 
 
