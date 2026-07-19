@@ -89,8 +89,24 @@ export function LocationMap({
 }: LocationMapProps) {
   const mapElement = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string>();
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
+  const [apiKey, setApiKey] = useState<string | undefined>(
+    () => (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined) || undefined,
+  );
   const query = location.trim();
+
+  useEffect(() => {
+    if (apiKey) return;
+    let cancelled = false;
+    fetch("/api/maps-key")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("no key"))))
+      .then((data: { key?: string }) => {
+        if (!cancelled && data.key) setApiKey(data.key);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [apiKey]);
 
   useEffect(() => {
     if (!apiKey || !query || !mapElement.current) return;

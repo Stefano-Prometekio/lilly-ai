@@ -14,6 +14,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiParseBriefDocumentRouteImport } from './routes/api.parse-brief-document'
 import { Route as ApiOutboundCallRouteImport } from './routes/api.outbound-call'
 import { Route as ApiMarketResearchRouteImport } from './routes/api.market-research'
+import { Route as ApiMapsKeyRouteImport } from './routes/api.maps-key'
 import { Route as ApiCallStatusRouteImport } from './routes/api.call-status'
 
 const CampaignRoute = CampaignRouteImport.update({
@@ -41,6 +42,11 @@ const ApiMarketResearchRoute = ApiMarketResearchRouteImport.update({
   path: '/api/market-research',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMapsKeyRoute = ApiMapsKeyRouteImport.update({
+  id: '/api/maps-key',
+  path: '/api/maps-key',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiCallStatusRoute = ApiCallStatusRouteImport.update({
   id: '/api/call-status',
   path: '/api/call-status',
@@ -51,6 +57,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/campaign': typeof CampaignRoute
   '/api/call-status': typeof ApiCallStatusRoute
+  '/api/maps-key': typeof ApiMapsKeyRoute
   '/api/market-research': typeof ApiMarketResearchRoute
   '/api/outbound-call': typeof ApiOutboundCallRoute
   '/api/parse-brief-document': typeof ApiParseBriefDocumentRoute
@@ -59,6 +66,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/campaign': typeof CampaignRoute
   '/api/call-status': typeof ApiCallStatusRoute
+  '/api/maps-key': typeof ApiMapsKeyRoute
   '/api/market-research': typeof ApiMarketResearchRoute
   '/api/outbound-call': typeof ApiOutboundCallRoute
   '/api/parse-brief-document': typeof ApiParseBriefDocumentRoute
@@ -68,6 +76,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/campaign': typeof CampaignRoute
   '/api/call-status': typeof ApiCallStatusRoute
+  '/api/maps-key': typeof ApiMapsKeyRoute
   '/api/market-research': typeof ApiMarketResearchRoute
   '/api/outbound-call': typeof ApiOutboundCallRoute
   '/api/parse-brief-document': typeof ApiParseBriefDocumentRoute
@@ -78,6 +87,7 @@ export interface FileRouteTypes {
     | '/'
     | '/campaign'
     | '/api/call-status'
+    | '/api/maps-key'
     | '/api/market-research'
     | '/api/outbound-call'
     | '/api/parse-brief-document'
@@ -86,6 +96,7 @@ export interface FileRouteTypes {
     | '/'
     | '/campaign'
     | '/api/call-status'
+    | '/api/maps-key'
     | '/api/market-research'
     | '/api/outbound-call'
     | '/api/parse-brief-document'
@@ -94,6 +105,7 @@ export interface FileRouteTypes {
     | '/'
     | '/campaign'
     | '/api/call-status'
+    | '/api/maps-key'
     | '/api/market-research'
     | '/api/outbound-call'
     | '/api/parse-brief-document'
@@ -103,6 +115,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CampaignRoute: typeof CampaignRoute
   ApiCallStatusRoute: typeof ApiCallStatusRoute
+  ApiMapsKeyRoute: typeof ApiMapsKeyRoute
   ApiMarketResearchRoute: typeof ApiMarketResearchRoute
   ApiOutboundCallRoute: typeof ApiOutboundCallRoute
   ApiParseBriefDocumentRoute: typeof ApiParseBriefDocumentRoute
@@ -145,6 +158,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiMarketResearchRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/maps-key': {
+      id: '/api/maps-key'
+      path: '/api/maps-key'
+      fullPath: '/api/maps-key'
+      preLoaderRoute: typeof ApiMapsKeyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/call-status': {
       id: '/api/call-status'
       path: '/api/call-status'
@@ -159,6 +179,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CampaignRoute: CampaignRoute,
   ApiCallStatusRoute: ApiCallStatusRoute,
+  ApiMapsKeyRoute: ApiMapsKeyRoute,
   ApiMarketResearchRoute: ApiMarketResearchRoute,
   ApiOutboundCallRoute: ApiOutboundCallRoute,
   ApiParseBriefDocumentRoute: ApiParseBriefDocumentRoute,
