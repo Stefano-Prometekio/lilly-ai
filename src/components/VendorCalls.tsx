@@ -255,7 +255,7 @@ export function VendorCalls({
 
   function stopAllCalls() {
     abortRef.current.aborted = true;
-    if (resolveCallRef.current) finishCall("declined");
+    if (resolveCallRef.current) finishCall("declined", null);
     setSeq((current) => ({ ...current, running: false }));
   }
 
